@@ -25,7 +25,7 @@ const statusConfig = {
 
 const InventarioGeneral = () => {
   const { rate, lastUpdated, convert, formatBs, isLoading: isLoadingRate } = useExchangeRate();
-  const { products, addProduct } = useProduct();
+  const { products, loading, error, addProduct, refreshProducts } = useProduct();
   const [searchTerm, setSearchTerm] = useState('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -44,35 +44,38 @@ const InventarioGeneral = () => {
 
   const categories = ['all', ...new Set(products.map(p => p.category))];
 
-  const handleAddProduct = () => {
+  const handleAddProduct = async () => {
     if (!newProduct.name) {
       toast.error("El nombre del producto es requerido");
       return;
     }
 
-    const product: Product = {
-      id: `#${(products.length + 1).toString().padStart(3, '0')}`,
-      name: newProduct.name || '',
-      category: newProduct.category || 'General',
-      stock: newProduct.stock || 0,
-      unit: newProduct.unit || 'Unidades',
-      minStock: newProduct.minStock || 0,
-      price: newProduct.price || 0,
-      status: 'available',
-      image: imagePreview || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&h=300&fit=crop'
-    };
+    try {
+      const product: Omit<Product, 'id'> = {
+        name: newProduct.name || '',
+        category: newProduct.category || 'General',
+        stock: newProduct.stock || 0,
+        unit: newProduct.unit || 'Unidades',
+        minStock: newProduct.minStock || 0,
+        price: newProduct.price || 0,
+        status: 'available',
+        image: imagePreview || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&h=300&fit=crop'
+      };
 
-    addProduct(product);
-    setIsAddProductOpen(false);
+      await addProduct(product);
+      setIsAddProductOpen(false);
 
-    setNewProduct({
-      name: '',
-      category: '',
-      unit: 'Unidades',
-      status: 'available'
-    });
-    setImagePreview(null);
-    toast.success("Producto agregado correctamente");
+      setNewProduct({
+        name: '',
+        category: '',
+        unit: 'Unidades',
+        status: 'available'
+      });
+      setImagePreview(null);
+    } catch (error) {
+      // Error already handled by context
+      console.error('Error al agregar producto:', error);
+    }
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {

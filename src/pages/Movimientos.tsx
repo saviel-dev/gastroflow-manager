@@ -15,16 +15,7 @@ interface Movement {
   reference?: string;
 }
 
-const movements: Movement[] = [
-  { id: 'M001', date: '2024-01-18', time: '10:30', product: 'Harina de Trigo', type: 'entrada', quantity: 50, unit: 'Kg', reason: 'Compra a proveedor', user: 'Carlos Admin', reference: 'OC-2024-001' },
-  { id: 'M002', date: '2024-01-18', time: '11:15', product: 'Coca Cola 355ml', type: 'salida', quantity: 12, unit: 'Unidades', reason: 'Venta', user: 'María Cajera', reference: 'V-2024-089' },
-  { id: 'M003', date: '2024-01-18', time: '11:45', product: 'Queso Mozzarella', type: 'merma', quantity: 2, unit: 'Kg', reason: 'Producto vencido', user: 'Carlos Admin' },
-  { id: 'M004', date: '2024-01-18', time: '12:00', product: 'Tomates Frescos', type: 'entrada', quantity: 10, unit: 'Kg', reason: 'Compra a proveedor', user: 'Carlos Admin', reference: 'OC-2024-002' },
-  { id: 'M005', date: '2024-01-18', time: '13:30', product: 'Aceite Vegetal', type: 'ajuste', quantity: -3, unit: 'Litros', reason: 'Ajuste de inventario', user: 'Carlos Admin' },
-  { id: 'M006', date: '2024-01-17', time: '09:00', product: 'Carne de Res', type: 'entrada', quantity: 30, unit: 'Kg', reason: 'Compra a proveedor', user: 'Carlos Admin', reference: 'OC-2024-003' },
-  { id: 'M007', date: '2024-01-17', time: '14:20', product: 'Pan de Hamburguesa', type: 'salida', quantity: 24, unit: 'Paquetes', reason: 'Producción', user: 'Chef Pedro' },
-  { id: 'M008', date: '2024-01-17', time: '16:45', product: 'Lechuga Fresca', type: 'merma', quantity: 1.5, unit: 'Kg', reason: 'Deterioro', user: 'Chef Pedro' },
-];
+const movements: Movement[] = [];
 
 const typeConfig = {
   entrada: { label: 'Entrada', icon: ArrowDownCircle, className: 'bg-success/10 text-success', bgColor: 'bg-green-500', iconBg: 'bg-green-600' },

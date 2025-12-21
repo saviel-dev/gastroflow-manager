@@ -10,12 +10,7 @@ interface Product {
   status: 'available' | 'low' | 'medium';
 }
 
-const products: Product[] = [
-  { id: '#001', name: 'Queso Cheddar', category: 'Ingredientes', stock: 45.0, unit: 'Kg', status: 'available' },
-  { id: '#002', name: 'Salsa de Tomate', category: 'Salsas', stock: 2.5, unit: 'Litros', status: 'low' },
-  { id: '#003', name: 'Coca Cola', category: 'Bebidas', stock: 120, unit: 'Unidades', status: 'available' },
-  { id: '#004', name: 'Pan de Hamburguesa', category: 'Panadería', stock: 50, unit: 'Paquetes', status: 'medium' },
-];
+const products: Product[] = [];
 
 const statusConfig = {
   available: { label: 'Disponible', className: 'bg-success/10 text-success' },

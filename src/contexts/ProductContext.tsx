@@ -1,6 +1,11 @@
 
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { inventarioGeneralService } from '@/services/inventario-general.service';
+import { movimientosService } from '@/services/movimientos.service';
+import type { InventarioGeneral } from '@/types/database.types';
+import { toast } from 'sonner';
 
+// Mantener la interfaz Product para compatibilidad con componentes existentes
 export interface Product {
   id: string;
   name: string;
@@ -15,54 +20,221 @@ export interface Product {
 
 interface ProductContextType {
   products: Product[];
-  addProduct: (product: Product) => void;
-  updateProduct: (product: Product) => void;
-  deleteProduct: (id: string) => void;
-  recordMovement: (productId: string, quantity: number, type: 'in' | 'out') => void;
+  loading: boolean;
+  error: string | null;
+  addProduct: (product: Omit<Product, 'id'>) => Promise<void>;
+  updateProduct: (product: Product) => Promise<void>;
+  deleteProduct: (id: string) => Promise<void>;
+  recordMovement: (productId: string, quantity: number, type: 'in' | 'out', motivo?: string) => Promise<void>;
+  refreshProducts: () => Promise<void>;
 }
 
 const ProductContext = createContext<ProductContextType | undefined>(undefined);
 
-const initialProducts: Product[] = [
-  { id: '#001', name: 'Queso Cheddar', category: 'Ingredientes', stock: 45.0, unit: 'Kg', minStock: 10, price: 120, status: 'available', image: 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=400&h=300&fit=crop' },
-  { id: '#002', name: 'Salsa de Tomate', category: 'Salsas', stock: 2.5, unit: 'Litros', minStock: 5, price: 35, status: 'low', image: 'https://images.unsplash.com/photo-1587486937554-68b1a45842f6?w=400&h=300&fit=crop' },
-  { id: '#003', name: 'Coca Cola 355ml', category: 'Bebidas', stock: 120, unit: 'Unidades', minStock: 50, price: 15, status: 'available', image: 'https://images.unsplash.com/photo-1554866585-cd94860890b7?w=400&h=300&fit=crop' },
-  { id: '#004', name: 'Pan de Hamburguesa', category: 'Panadería', stock: 50, unit: 'Paquetes', minStock: 30, price: 45, status: 'medium', image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&h=300&fit=crop' },
-  { id: '#005', name: 'Carne de Res', category: 'Carnes', stock: 0, unit: 'Kg', minStock: 20, price: 180, status: 'out', image: 'https://images.unsplash.com/photo-1603048588665-791ca8aea617?w=400&h=300&fit=crop' },
-  { id: '#006', name: 'Lechuga Fresca', category: 'Vegetales', stock: 15, unit: 'Kg', minStock: 10, price: 25, status: 'available', image: 'https://images.unsplash.com/photo-1622206151226-18ca2c9ab4a1?w=400&h=300&fit=crop' },
-  { id: '#007', name: 'Papas Fritas Congeladas', category: 'Congelados', stock: 8, unit: 'Bolsas', minStock: 15, price: 55, status: 'low', image: 'https://images.unsplash.com/photo-1598679253544-2c97992403ea?w=400&h=300&fit=crop' },
-  { id: '#008', name: 'Aceite Vegetal', category: 'Aceites', stock: 25, unit: 'Litros', minStock: 10, price: 42, status: 'available', image: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=400&h=300&fit=crop' },
-];
+// Función helper para convertir de InventarioGeneral a Product
+const mapToProduct = (item: InventarioGeneral): Product => {
+  // Mapear estados de español a inglés
+  const statusMap: Record<string, 'available' | 'low' | 'medium' | 'out'> = {
+    'disponible': 'available',
+    'bajo': 'low',
+    'medio': 'medium',
+    'agotado': 'out'
+  };
+
+  return {
+    id: item.id,
+    name: item.nombre,
+    category: item.categoria,
+    stock: item.stock,
+    unit: item.unidad,
+    minStock: item.stock_minimo,
+    price: item.precio,
+    status: statusMap[item.estado] || 'available',
+    image: item.imagen_url,
+  };
+};
+
+// Función helper para convertir de Product a InventarioGeneral (para crear/actualizar)
+const mapFromProduct = (product: Omit<Product, 'id'>): Omit<InventarioGeneral, 'id' | 'fecha_creacion' | 'fecha_actualizacion'> => {
+  // Mapear estados de inglés a español
+  const statusMap: Record<string, 'disponible' | 'bajo' | 'medio' | 'agotado'> = {
+    'available': 'disponible',
+    'low': 'bajo',
+    'medium': 'medio',
+    'out': 'agotado'
+  };
+
+  return {
+    nombre: product.name,
+    categoria: product.category,
+    stock: product.stock,
+    unidad: product.unit,
+    stock_minimo: product.minStock,
+    precio: product.price,
+    estado: statusMap[product.status] || 'disponible',
+    imagen_url: product.image,
+    activo: true,
+  };
+};
 
 export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [products, setProducts] = useState<Product[]>(initialProducts);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const addProduct = (product: Product) => {
-    setProducts([...products, product]);
+  // Cargar productos al montar el componente
+  useEffect(() => {
+    loadProducts();
+  }, []);
+
+  const loadProducts = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await inventarioGeneralService.obtenerTodos(true);
+      const mappedProducts = data.map(mapToProduct);
+      setProducts(mappedProducts);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Error al cargar productos';
+      setError(errorMsg);
+      console.error('Error al cargar productos:', err);
+      // No mostrar toast en la carga inicial para no bloquear la UI
+      setProducts([]); // Asegurar que products sea un array vacío en caso de error
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const updateProduct = (product: Product) => {
-    setProducts(products.map(p => p.id === product.id ? product : p));
+  const addProduct = async (product: Omit<Product, 'id'>) => {
+    try {
+      setError(null);
+      const newProductData = mapFromProduct(product);
+      const createdProduct = await inventarioGeneralService.crear(newProductData);
+      const mappedProduct = mapToProduct(createdProduct);
+      setProducts([...products, mappedProduct]);
+      toast.success(`Producto "${product.name}" agregado exitosamente`);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Error al agregar producto';
+      setError(errorMsg);
+      console.error('Error al agregar producto:', err);
+      toast.error(errorMsg);
+      throw err;
+    }
   };
 
-  const deleteProduct = (id: string) => {
-    setProducts(products.filter(p => p.id !== id));
+  const updateProduct = async (product: Product) => {
+    try {
+      setError(null);
+      
+      // Mapear estado de inglés a español
+      const statusMap: Record<string, 'disponible' | 'bajo' | 'medio' | 'agotado'> = {
+        'available': 'disponible',
+        'low': 'bajo',
+        'medium': 'medio',
+        'out': 'agotado'
+      };
+
+      const updateData = {
+        nombre: product.name,
+        categoria: product.category,
+        stock: product.stock,
+        unidad: product.unit,
+        stock_minimo: product.minStock,
+        precio: product.price,
+        estado: statusMap[product.status] || 'disponible',
+        imagen_url: product.image,
+      };
+      const updatedProduct = await inventarioGeneralService.actualizar(product.id, updateData);
+      const mappedProduct = mapToProduct(updatedProduct);
+      setProducts(products.map(p => p.id === product.id ? mappedProduct : p));
+      toast.success(`Producto "${product.name}" actualizado exitosamente`);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Error al actualizar producto';
+      setError(errorMsg);
+      console.error('Error al actualizar producto:', err);
+      toast.error(errorMsg);
+      throw err;
+    }
   };
 
-  const recordMovement = (productId: string, quantity: number, type: 'in' | 'out') => {
-    setProducts(products.map(p => {
-      if (p.id === productId) {
-        const newStock = type === 'in' ? p.stock + quantity : p.stock - quantity;
-        const newStatus = newStock <= 0 ? 'out' : newStock <= p.minStock ? 'low' : 'available';
-        return { ...p, stock: newStock, status: newStatus as any };
+  const deleteProduct = async (id: string) => {
+    try {
+      setError(null);
+      const product = products.find(p => p.id === id);
+      await inventarioGeneralService.eliminar(id);
+      setProducts(products.filter(p => p.id !== id));
+      toast.success(`Producto "${product?.name || 'desconocido'}" eliminado exitosamente`);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Error al eliminar producto';
+      setError(errorMsg);
+      console.error('Error al eliminar producto:', err);
+      toast.error(errorMsg);
+      throw err;
+    }
+  };
+
+  const recordMovement = async (productId: string, quantity: number, type: 'in' | 'out', motivo?: string) => {
+    try {
+      setError(null);
+      const product = products.find(p => p.id === productId);
+      if (!product) {
+        throw new Error('Producto no encontrado');
       }
-      return p;
-    }));
-    console.log(`Movement recorded: Product ${productId}, ${type} ${quantity}`);
+
+      // Registrar el movimiento
+      if (type === 'in') {
+        await movimientosService.registrarEntrada(
+          productId,
+          'general',
+          quantity,
+          product.unit,
+          {
+            motivo: motivo || 'Entrada de inventario',
+          }
+        );
+        await inventarioGeneralService.incrementarStock(productId, quantity);
+      } else {
+        await movimientosService.registrarSalida(
+          productId,
+          'general',
+          quantity,
+          product.unit,
+          {
+            motivo: motivo || 'Salida de inventario',
+          }
+        );
+        await inventarioGeneralService.decrementarStock(productId, quantity);
+      }
+
+      // Recargar productos para obtener el stock actualizado
+      await loadProducts();
+      
+      const actionText = type === 'in' ? 'entrada' : 'salida';
+      toast.success(`Movimiento de ${actionText} registrado: ${quantity} ${product.unit}`);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Error al registrar movimiento';
+      setError(errorMsg);
+      console.error('Error al registrar movimiento:', err);
+      toast.error(errorMsg);
+      throw err;
+    }
+  };
+
+  const refreshProducts = async () => {
+    await loadProducts();
   };
 
   return (
-    <ProductContext.Provider value={{ products, addProduct, updateProduct, deleteProduct, recordMovement }}>
+    <ProductContext.Provider value={{ 
+      products, 
+      loading, 
+      error, 
+      addProduct, 
+      updateProduct, 
+      deleteProduct, 
+      recordMovement,
+      refreshProducts 
+    }}>
       {children}
     </ProductContext.Provider>
   );

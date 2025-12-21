@@ -4,37 +4,13 @@ import StatCard from '@/components/dashboard/StatCard';
 import RecentMovements from '@/components/dashboard/RecentMovements';
 import PageTransition from '@/components/layout/PageTransition';
 
-const inventoryData = [
-  { day: 'Lun', valor: 15200 },
-  { day: 'Mar', valor: 14800 },
-  { day: 'Mié', valor: 15100 },
-  { day: 'Jue', valor: 15430 },
-  { day: 'Vie', valor: 15600 },
-  { day: 'Sáb', valor: 15300 },
-  { day: 'Dom', valor: 15450 },
-];
+const inventoryData: any[] = [];
 
-const movementDistribution = [
-  { name: 'Entradas', value: 45, color: '#22c55e' }, // success
-  { name: 'Salidas', value: 35, color: '#3b82f6' }, // info
-  { name: 'Mermas', value: 10, color: '#ef4444' }, // destructive
-  { name: 'Ajustes', value: 10, color: '#f59e0b' }, // warning
-];
+const movementDistribution: any[] = [];
 
-const topProducts = [
-  { name: 'Harina T.', ventas: 120 },
-  { name: 'Coca Cola', ventas: 98 },
-  { name: 'Queso Mozz.', ventas: 86 },
-  { name: 'Carne Res', ventas: 74 },
-  { name: 'Papas F.', ventas: 65 },
-];
+const topProducts: any[] = [];
 
-const criticalStock = [
-  { id: 1, name: 'Salsa de Tomate', stock: 2.5, unit: 'Litros', status: 'low' },
-  { id: 2, name: 'Carne de Res', stock: 0, unit: 'Kg', status: 'out' },
-  { id: 3, name: 'Papas Fritas', stock: 8, unit: 'Bolsas', status: 'low' },
-  { id: 4, name: 'Lechuga', stock: 1.2, unit: 'Kg', status: 'low' },
-];
+const criticalStock: any[] = [];
 
 const Reportes = () => {
   return (
@@ -69,37 +45,35 @@ const Reportes = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         <StatCard
           title="Valor Inventario"
-          value="$15,430"
+          value="$0"
           icon={Package}
           bgColor="bg-blue-500"
           iconBgColor="bg-blue-600"
-          status="Actualizado hace 1h"
-          trend={{ value: '+2.5%', positive: true }}
+          status="Sin datos"
         />
         <StatCard
           title="Pérdidas (Mes)"
-          value="$890"
+          value="$0"
           icon={AlertTriangle}
           bgColor="bg-rose-500"
           iconBgColor="bg-rose-600"
-          trend={{ value: '-5% vs mes anterior', positive: true }} // positive context because loss decreased
+          status="Sin datos"
         />
         <StatCard
           title="Productos Activos"
-          value="142"
+          value="0"
           icon={Layers}
           bgColor="bg-emerald-500"
           iconBgColor="bg-emerald-600"
-          status="En 3 sucursales"
+          status="Sin productos"
         />
         <StatCard
           title="Alertas Stock"
-          value="4"
+          value="0"
           icon={AlertCircle}
           bgColor="bg-amber-500"
           iconBgColor="bg-amber-600"
-          status="Requieren atención"
-          trend={{ value: '+1 desde ayer', positive: false }}
+          status="Sin alertas"
         />
       </div>
 

@@ -13,9 +13,9 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <StatCard
           title="Bajo Stock"
-          value="8 Productos"
+          value="0 Productos"
           icon={AlertTriangle}
-          status="Requiere atención"
+          status="Sin productos registrados"
           bgColor="bg-amber-500"
           iconBgColor="bg-amber-600"
         />
@@ -29,16 +29,16 @@ const Dashboard = () => {
         />
         <StatCard
           title="Valor Inventario"
-          value="$430.22"
-          secondaryValue={`Bs. ${(430.22 * rate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          value="$0.00"
+          secondaryValue={`Bs. ${(0 * rate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           icon={Coins}
-          status="Actualizado hoy"
+          status="Sin productos en inventario"
           bgColor="bg-emerald-600"
           iconBgColor="bg-emerald-700"
         />
         <StatCard
           title="Movimientos del Mes"
-          value="127"
+          value="0"
           secondaryValue="Entradas y salidas"
           icon={TrendingUp}
           status="Diciembre 2024"

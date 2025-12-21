@@ -3,15 +3,9 @@ import PageTransition from '@/components/layout/PageTransition';
 import { useState, useEffect, useRef } from 'react';
 import { useExchangeRate } from '@/contexts/ExchangeRateContext';
 import { useProduct, Product } from '@/contexts/ProductContext';
+import { useLocation, Location as BusinessLocation } from '@/contexts/LocationContext';
+import { useDetailedInventory } from '@/contexts/DetailedInventoryContext';
 import { toast } from 'sonner';
-
-// Removed local Product interface to use Context one
-
-
-interface Location {
-  id: string;
-  name: string;
-}
 
 const statusConfig = {
   available: { label: 'Disponible', className: 'bg-success/10 text-success' },
@@ -22,28 +16,38 @@ const statusConfig = {
 
 const InventarioDetallado = () => {
   const { rate, convert, formatBs } = useExchangeRate();
-  const { products: generalProducts, recordMovement } = useProduct();
+  const { products: generalProducts, loading: loadingGeneral } = useProduct();
+  
+  // Contexto de ubicaciones
+  const { 
+    locations, 
+    loading: loadingLocations, 
+    addLocation, 
+    updateLocation, 
+    deleteLocation 
+  } = useLocation();
+  
+  // Contexto de inventario detallado
+  const {
+    getProductsByLocation,
+    loadingByLocation,
+    addProductToLocation,
+    transferFromGeneral,
+    updateProduct: updateDetailedProduct,
+    deleteProduct: deleteDetailedProduct,
+    refreshLocation
+  } = useDetailedInventory();
 
-  const [locations, setLocations] = useState<Location[]>([
-    { id: 'duarte-burguer', name: 'Duarte Burguer' },
-    { id: 'bodega-san-antonio', name: 'Bodega San Antonio' },
-    { id: 'kiosko-will', name: 'Kiosko Will' },
-  ]);
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [locationSearchTerm, setLocationSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('cards');
   const [locationViewMode, setLocationViewMode] = useState<'list' | 'cards'>('cards');
-  const [editingLocation, setEditingLocation] = useState<Location | null>(null);
+  const [editingLocation, setEditingLocation] = useState<any | null>(null);
   const [isAddingLocation, setIsAddingLocation] = useState(false);
   const [locationFormData, setLocationFormData] = useState({ name: '' });
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
-  const [products, setProducts] = useState<Record<string, Product[]>>({
-    'duarte-burguer': [],
-    'bodega-san-antonio': [],
-    'kiosko-will': [],
-  });
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -58,8 +62,14 @@ const InventarioDetallado = () => {
     status: 'available',
   });
 
+  // Cargar productos cuando se selecciona una ubicación
+  useEffect(() => {
+    if (selectedLocation) {
+      refreshLocation(selectedLocation);
+    }
+  }, [selectedLocation]); // Solo depende de selectedLocation, no de refreshLocation
 
-  const currentProducts = selectedLocation ? products[selectedLocation] || [] : [];
+  const currentProducts = selectedLocation ? getProductsByLocation(selectedLocation) : [];
   const categories = ['all', ...new Set(currentProducts.map(p => p.category))];
 
   const filteredProducts = currentProducts.filter(product => {
@@ -68,61 +78,40 @@ const InventarioDetallado = () => {
     return matchesSearch && matchesCategory;
   });
 
-  const handleAddProduct = () => {
+  const handleAddProduct = async () => {
     if (!selectedLocation) return;
     
-    // Logic for adding from General Inventory
-    if (selectedGeneralProductId) {
-       const generalProduct = generalProducts.find(p => p.id === selectedGeneralProductId);
-       if (!generalProduct) return;
-
-       if (formData.stock > generalProduct.stock) {
-           toast.error(`Stock insuficiente en inventario general. Disponible: ${generalProduct.stock}`);
-           return;
-       }
-
-       // Deduct from General Inventory
-       recordMovement(selectedGeneralProductId, formData.stock || 0, 'out');
-       
-       const newId = `#${String(currentProducts.length + 1).padStart(3, '0')}-${Date.now()}`; // Unique ID
-       const newProduct: Product = { 
-           ...generalProduct, 
-           id: newId,
-           stock: formData.stock || 0, 
-           minStock: formData.minStock || 0,
-           image: imagePreview || generalProduct.image || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&h=300&fit=crop'
-       };
-       
-       setProducts({
-         ...products,
-         [selectedLocation]: [...currentProducts, newProduct],
-       });
-       
-       toast.success("Producto agregado del inventario general");
-    } else {
-        const newId = `#${String(currentProducts.length + 1).padStart(3, '0')}`;
-        const newProduct: Product = { 
-            name: formData.name || '',
-            category: formData.category || 'General',
-            stock: formData.stock || 0,
-            unit: formData.unit || 'Unidades',
-            minStock: formData.minStock || 0,
-            price: formData.price || 0,
-            status: formData.status || 'available',
-            image: imagePreview || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&h=300&fit=crop',
-            id: newId 
+    try {
+      // Logic for adding from General Inventory
+      if (selectedGeneralProductId) {
+        await transferFromGeneral(
+          selectedLocation,
+          selectedGeneralProductId,
+          formData.stock || 0,
+          formData.minStock || 0
+        );
+      } else {
+        // Crear producto nuevo
+        const newProduct: Omit<Product, 'id'> = {
+          name: formData.name || '',
+          category: formData.category || 'General',
+          stock: formData.stock || 0,
+          unit: formData.unit || 'Unidades',
+          minStock: formData.minStock || 0,
+          price: formData.price || 0,
+          status: formData.status || 'available',
+          image: imagePreview || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&h=300&fit=crop',
         };
-        setProducts({
-          ...products,
-          [selectedLocation]: [...currentProducts, newProduct],
-        });
-        toast.success("Producto creado localmente");
-    }
+        await addProductToLocation(selectedLocation, newProduct);
+      }
 
-    setIsAddingProduct(false);
-    setFormData({ name: '', category: '', unit: '', status: 'available' });
-    setSelectedGeneralProductId('');
-    setImagePreview(null);
+      setIsAddingProduct(false);
+      setFormData({ name: '', category: '', unit: '', status: 'available' });
+      setSelectedGeneralProductId('');
+      setImagePreview(null);
+    } catch (error) {
+      console.error('Error al agregar producto:', error);
+    }
   };
 
 
@@ -133,23 +122,24 @@ const InventarioDetallado = () => {
   };
 
 
-  const handleUpdateProduct = () => {
+  const handleUpdateProduct = async () => {
     if (!selectedLocation || !editingProduct) return;
-    const updatedProducts = currentProducts.map(p => 
-      p.id === editingProduct.id ? { 
-          ...p,
-          ...formData, 
-          image: imagePreview || p.image,
-          id: editingProduct.id 
-      } as Product : p
-    );
-    setProducts({
-      ...products,
-      [selectedLocation]: updatedProducts,
-    });
-    setEditingProduct(null);
-    setFormData({ name: '', category: '', unit: '', status: 'available' });
-    setImagePreview(null);
+    
+    try {
+      const updatedProduct: Product = {
+        ...editingProduct,
+        ...formData,
+        image: imagePreview || editingProduct.image,
+      } as Product;
+      
+      await updateDetailedProduct(selectedLocation, updatedProduct);
+      
+      setEditingProduct(null);
+      setFormData({ name: '', category: '', unit: '', status: 'available' });
+      setImagePreview(null);
+    } catch (error) {
+      console.error('Error al actualizar producto:', error);
+    }
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -164,13 +154,14 @@ const InventarioDetallado = () => {
   };
 
 
-  const handleDeleteProduct = (productId: string) => {
+  const handleDeleteProduct = async (productId: string) => {
     if (!selectedLocation) return;
     if (confirm('¿Estás seguro de que deseas eliminar este producto?')) {
-      setProducts({
-        ...products,
-        [selectedLocation]: currentProducts.filter(p => p.id !== productId),
-      });
+      try {
+        await deleteDetailedProduct(selectedLocation, productId);
+      } catch (error) {
+        console.error('Error al eliminar producto:', error);
+      }
     }
   };
 
@@ -201,56 +192,44 @@ const InventarioDetallado = () => {
     location.name.toLowerCase().includes(locationSearchTerm.toLowerCase())
   );
 
-  const handleAddLocation = () => {
+  const handleAddLocation = async () => {
     if (locationFormData.name.trim()) {
-      const newId = locationFormData.name.toLowerCase().replace(/\s+/g, '-');
-      const newLocation: Location = { id: newId, name: locationFormData.name };
-      setLocations([...locations, newLocation]);
-      setProducts({ ...products, [newId]: [] });
-      setIsAddingLocation(false);
-      setLocationFormData({ name: '' });
+      try {
+        await addLocation({ name: locationFormData.name });
+        setIsAddingLocation(false);
+        setLocationFormData({ name: '' });
+      } catch (error) {
+        console.error('Error al agregar ubicación:', error);
+      }
     }
   };
 
-  const handleEditLocation = (location: Location) => {
+  const handleEditLocation = (location: BusinessLocation) => {
     setEditingLocation(location);
     setLocationFormData({ name: location.name });
   };
 
-  const handleUpdateLocation = () => {
+  const handleUpdateLocation = async () => {
     if (editingLocation && locationFormData.name.trim()) {
-      const oldId = editingLocation.id;
-      const newId = locationFormData.name.toLowerCase().replace(/\s+/g, '-');
-      const updatedLocations = locations.map(l =>
-        l.id === oldId ? { id: newId, name: locationFormData.name } : l
-      );
-      setLocations(updatedLocations);
-      
-      // Actualizar productos si cambió el ID
-      if (oldId !== newId && products[oldId]) {
-        setProducts({
-          ...products,
-          [newId]: products[oldId],
-        });
-        delete products[oldId];
-      }
-      
-      setEditingLocation(null);
-      setLocationFormData({ name: '' });
-      if (selectedLocation === oldId) {
-        setSelectedLocation(newId);
+      try {
+        await updateLocation({ ...editingLocation, name: locationFormData.name });
+        setEditingLocation(null);
+        setLocationFormData({ name: '' });
+      } catch (error) {
+        console.error('Error al actualizar ubicación:', error);
       }
     }
   };
 
-  const handleDeleteLocation = (locationId: string) => {
+  const handleDeleteLocation = async (locationId: string) => {
     if (confirm('¿Estás seguro de que deseas eliminar este negocio? Se eliminarán todos sus productos.')) {
-      setLocations(locations.filter(l => l.id !== locationId));
-      const newProducts = { ...products };
-      delete newProducts[locationId];
-      setProducts(newProducts);
-      if (selectedLocation === locationId) {
-        setSelectedLocation(null);
+      try {
+        await deleteLocation(locationId);
+        if (selectedLocation === locationId) {
+          setSelectedLocation(null);
+        }
+      } catch (error) {
+        console.error('Error al eliminar ubicación:', error);
       }
     }
   };
@@ -839,7 +818,7 @@ const InventarioDetallado = () => {
       {/* Location View */}
       {locationViewMode === 'cards' ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          {filteredLocations.map((location) => (
+          {filteredLocations.map((location: BusinessLocation) => (
             <div
               key={location.id}
               onClick={() => setSelectedLocation(location.id)}
@@ -854,7 +833,7 @@ const InventarioDetallado = () => {
                   {location.name}
                 </h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {products[location.id]?.length || 0} productos
+                  {getProductsByLocation(location.id)?.length || 0} productos
                 </p>
               </div>
 
@@ -895,7 +874,7 @@ const InventarioDetallado = () => {
                 </tr>
               </thead>
               <tbody className="text-sm text-foreground divide-y divide-border">
-                {filteredLocations.map((location) => (
+                {filteredLocations.map((location: BusinessLocation) => (
                   <tr key={location.id} className="hover:bg-primary/5 transition-colors">
                     <td className="p-4">
                       <button
@@ -907,7 +886,7 @@ const InventarioDetallado = () => {
                       </button>
                     </td>
                     <td className="p-4 text-center text-muted-foreground">
-                      {products[location.id]?.length || 0} productos
+                      {getProductsByLocation(location.id)?.length || 0} productos
                     </td>
                     <td className="p-4 text-center">
                       <div className="flex justify-center gap-2">

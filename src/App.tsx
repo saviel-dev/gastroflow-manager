@@ -1,53 +1,52 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "@/contexts/AuthContext";
-import { ThemeProvider } from "@/contexts/ThemeContext";
-import { ExchangeRateProvider } from "@/contexts/ExchangeRateContext";
-import { ProductProvider } from "@/contexts/ProductContext";
-import DashboardLayout from "@/components/layout/DashboardLayout";
-import Index from "./pages/Index";
-import Dashboard from "./pages/Dashboard";
-import InventarioGeneral from "./pages/InventarioGeneral";
-import InventarioDetallado from "./pages/InventarioDetallado";
-import Movimientos from "./pages/Movimientos";
-import Reportes from "./pages/Reportes";
-import Configuracion from "./pages/Configuracion";
-import NotFound from "./pages/NotFound";
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { ThemeProvider } from '@/contexts/ThemeContext';
+import { AuthProvider } from '@/contexts/AuthContext';
+import { ProductProvider } from '@/contexts/ProductContext';
+import { ExchangeRateProvider } from '@/contexts/ExchangeRateContext';
+import { LocationProvider } from '@/contexts/LocationContext';
+import { DetailedInventoryProvider } from '@/contexts/DetailedInventoryContext';
+import DashboardLayout from '@/components/layout/DashboardLayout';
+import Dashboard from '@/pages/Dashboard';
+import InventarioGeneral from '@/pages/InventarioGeneral';
+import InventarioDetallado from '@/pages/InventarioDetallado';
+import Movimientos from '@/pages/Movimientos';
+import Configuracion from '@/pages/Configuracion';
+import Reportes from '@/pages/Reportes';
+import Index from '@/pages/Index';
+import { Toaster } from 'sonner';
 
-const queryClient = new QueryClient();
-
-const App = () => (
-  <QueryClientProvider client={queryClient}>
+function App() {
+  return (
     <ThemeProvider>
-      <ExchangeRateProvider>
-        <ProductProvider>
       <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route element={<DashboardLayout />}>
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/inventario-general" element={<InventarioGeneral />} />
-                <Route path="/inventario-detallado" element={<InventarioDetallado />} />
-                <Route path="/movimientos" element={<Movimientos />} />
-                <Route path="/reportes" element={<Reportes />} />
-                <Route path="/configuracion" element={<Configuracion />} />
-              </Route>
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
+        <ExchangeRateProvider>
+          <ProductProvider>
+            <LocationProvider>
+              <DetailedInventoryProvider>
+                <Router>
+                  <Toaster position="top-right" richColors />
+                  <Routes>
+                    {/* Ruta pública - Login */}
+                    <Route path="/" element={<Index />} />
+                    
+                    {/* Rutas protegidas - Dashboard */}
+                    <Route element={<DashboardLayout />}>
+                      <Route path="dashboard" element={<Dashboard />} />
+                      <Route path="inventario-general" element={<InventarioGeneral />} />
+                      <Route path="inventario-detallado" element={<InventarioDetallado />} />
+                      <Route path="movimientos" element={<Movimientos />} />
+                      <Route path="configuracion" element={<Configuracion />} />
+                      <Route path="reportes" element={<Reportes />} />
+                    </Route>
+                  </Routes>
+                </Router>
+              </DetailedInventoryProvider>
+            </LocationProvider>
+          </ProductProvider>
+        </ExchangeRateProvider>
       </AuthProvider>
-        </ProductProvider>
-      </ExchangeRateProvider>
     </ThemeProvider>
-  </QueryClientProvider>
-);
+  );
+}
 
 export default App;
