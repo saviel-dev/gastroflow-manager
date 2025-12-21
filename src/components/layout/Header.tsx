@@ -1,8 +1,8 @@
-import { Menu, Bell, LogOut } from "lucide-react";
+import { Menu, LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-import NotificationPanel from "./NotificationPanel";
+
 
 interface HeaderProps {
   title: string;
@@ -12,7 +12,7 @@ interface HeaderProps {
 const Header = ({ title, onMenuClick }: HeaderProps) => {
   const { logout } = useAuth();
   const navigate = useNavigate();
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
+
 
   const currentDate = new Date().toLocaleDateString("es-ES", {
     weekday: "long",
@@ -46,21 +46,7 @@ const Header = ({ title, onMenuClick }: HeaderProps) => {
           </p>
         </div>
 
-        {/* Notifications Button */}
-        <div className="relative">
-          <button
-            onClick={() => setNotificationsOpen(!notificationsOpen)}
-            className="relative p-2 text-muted-foreground hover:text-primary transition-colors"
-          >
-            <Bell className="w-5 h-5" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full"></span>
-          </button>
 
-          <NotificationPanel
-            isOpen={notificationsOpen}
-            onClose={() => setNotificationsOpen(false)}
-          />
-        </div>
 
         {/* Logout Button */}
         <button

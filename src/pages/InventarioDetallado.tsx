@@ -1,4 +1,5 @@
-import { ClipboardList, Search, Plus, Edit, Trash2, Folder, ChevronRight, X, Table2, Grid3x3, Save, List, Package, MoreVertical, Eye } from 'lucide-react';
+import { ClipboardList, Search, Plus, Edit, Trash2, Folder, ChevronRight, X, Table2, Grid3x3, Save, List, Package, MoreVertical, Eye, Store } from 'lucide-react';
+import PageTransition from '@/components/layout/PageTransition';
 import { useState, useEffect } from 'react';
 
 interface Product {
@@ -200,7 +201,8 @@ const InventarioDetallado = () => {
 
   if (selectedLocation) {
     return (
-      <div className="space-y-6">
+      <PageTransition>
+        <div className="space-y-6">
         {/* Header con botón de volver */}
         <div className="flex flex-col gap-3 sm:gap-4">
           <div className="flex items-center gap-3 sm:gap-4">
@@ -230,7 +232,7 @@ const InventarioDetallado = () => {
 
         {/* Filters */}
         <div className="bg-card rounded-xl shadow-sm p-3 sm:p-4">
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+          <div className="flex flex-col gap-3 sm:gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
@@ -241,37 +243,39 @@ const InventarioDetallado = () => {
                 className="w-full pl-9 pr-4 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 bg-background"
               />
             </div>
-            <div className="flex gap-3 sm:gap-4">
+            <div className="flex flex-col sm:flex-row gap-3">
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="select-category flex-1 sm:flex-none"
+                className="select-category flex-1"
               >
                 <option value="all">Todas las categorías</option>
                 {categories.filter(c => c !== 'all').map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
               </select>
-              <div className="hidden sm:flex gap-2 border border-border rounded-lg overflow-hidden">
+              <div className="flex gap-2 border border-border rounded-lg overflow-hidden">
                 <button
                   onClick={() => setViewMode('table')}
-                  className={`px-4 py-2 text-sm transition-colors flex items-center gap-1 ${
+                  className={`flex-1 sm:flex-none px-4 py-2.5 sm:py-2 text-sm transition-colors flex items-center justify-center gap-2 ${
                     viewMode === 'table'
                       ? 'bg-blue-500 text-white'
                       : 'bg-background text-foreground hover:bg-secondary'
                   }`}
                 >
                   <Table2 className="w-4 h-4" />
+                  <span className="hidden sm:inline">Tabla</span>
                 </button>
                 <button
                   onClick={() => setViewMode('cards')}
-                  className={`px-4 py-2 text-sm transition-colors flex items-center gap-1 ${
+                  className={`flex-1 sm:flex-none px-4 py-2.5 sm:py-2 text-sm transition-colors flex items-center justify-center gap-2 ${
                     viewMode === 'cards'
                       ? 'bg-blue-500 text-white'
                       : 'bg-background text-foreground hover:bg-secondary'
                   }`}
                 >
                   <Grid3x3 className="w-4 h-4" />
+                  <span className="hidden sm:inline">Tarjetas</span>
                 </button>
               </div>
             </div>
@@ -563,57 +567,63 @@ const InventarioDetallado = () => {
             )}
           </div>
         )}
-      </div>
+        </div>
+      </PageTransition>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <PageTransition>
+      <div className="space-y-6">
       {/* Filters y botón agregar */}
       <div className="bg-card rounded-xl shadow-sm p-3 sm:p-4">
-        <div className="flex flex-col gap-3 sm:gap-4">
-          <div className="flex gap-3 sm:gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Buscar negocio..."
-                value={locationSearchTerm}
-                onChange={(e) => setLocationSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 bg-background"
-              />
-            </div>
-            <div className="hidden sm:flex gap-2 border border-border rounded-lg overflow-hidden">
+        <div className="flex flex-col lg:flex-row gap-3 sm:gap-4 items-stretch lg:items-center">
+          <div className="relative flex-1 lg:flex-none lg:w-64">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Buscar negocio..."
+              value={locationSearchTerm}
+              onChange={(e) => setLocationSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 bg-background"
+            />
+          </div>
+          
+          <div className="flex flex-1 gap-3 sm:gap-4 items-center">
+            <button
+              onClick={() => setIsAddingLocation(true)}
+              type="button"
+              className="button flex-1 lg:flex-none"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Agregar Negocio</span>
+            </button>
+
+            <div className="flex gap-2 border border-border rounded-lg overflow-hidden flex-shrink-0">
               <button
                 onClick={() => setLocationViewMode('list')}
-                className={`px-4 py-2 text-sm transition-colors flex items-center gap-1 ${
+                className={`px-4 py-2 text-sm transition-colors flex items-center justify-center gap-2 ${
                   locationViewMode === 'list'
                     ? 'bg-blue-500 text-white'
                     : 'bg-background text-foreground hover:bg-secondary'
                 }`}
               >
                 <List className="w-4 h-4" />
+                <span className="hidden sm:inline">Lista</span>
               </button>
               <button
                 onClick={() => setLocationViewMode('cards')}
-                className={`px-4 py-2 text-sm transition-colors flex items-center gap-1 ${
+                className={`px-4 py-2 text-sm transition-colors flex items-center justify-center gap-2 ${
                   locationViewMode === 'cards'
                     ? 'bg-blue-500 text-white'
                     : 'bg-background text-foreground hover:bg-secondary'
                 }`}
               >
                 <Grid3x3 className="w-4 h-4" />
+                <span className="hidden sm:inline">Cuadrícula</span>
               </button>
             </div>
           </div>
-          <button
-            onClick={() => setIsAddingLocation(true)}
-            type="button"
-            className="button w-full sm:w-auto"
-          >
-            <Plus className="w-4 h-4" />
-            Agregar Negocio
-          </button>
         </div>
       </div>
 
@@ -665,30 +675,30 @@ const InventarioDetallado = () => {
           {filteredLocations.map((location) => (
             <div
               key={location.id}
-              className="bg-card rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow group relative"
+              onClick={() => setSelectedLocation(location.id)}
+              className="group bg-card border border-border/60 hover:border-primary/50 hover:shadow-sm rounded-xl p-4 transition-all duration-300 cursor-pointer flex items-center gap-4"
             >
-              <button
-                onClick={() => setSelectedLocation(location.id)}
-                className="w-full text-left"
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <div className="p-3 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
-                    <Folder className="w-8 h-8 text-primary" />
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
-                </div>
-                <h3 className="text-lg font-bold text-foreground mb-2">{location.name}</h3>
-                <p className="text-sm text-muted-foreground">
+              <div className="p-2.5 bg-secondary group-hover:bg-primary/10 rounded-lg transition-colors shrink-0">
+                <Store className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+              </div>
+              
+              <div className="min-w-0 flex-1">
+                <h3 className="text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+                  {location.name}
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
                   {products[location.id]?.length || 0} productos
                 </p>
-              </button>
-              <div className="absolute top-4 right-4 flex gap-1">
+              </div>
+
+              <div className="flex items-center gap-1">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     handleEditLocation(location);
-                  }}
-                  className="p-2 text-blue-500 hover:bg-blue-500/10 rounded-lg transition-colors"
+                   }}
+                  className="p-2 text-muted-foreground hover:text-blue-500 hover:bg-blue-500/10 rounded-lg transition-all"
+                  title="Editar"
                 >
                   <Edit className="w-4 h-4" />
                 </button>
@@ -697,7 +707,8 @@ const InventarioDetallado = () => {
                     e.stopPropagation();
                     handleDeleteLocation(location.id);
                   }}
-                  className="p-2 text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                  className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all"
+                  title="Eliminar"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -760,6 +771,7 @@ const InventarioDetallado = () => {
         </div>
       )}
     </div>
+    </PageTransition>
   );
 };
 

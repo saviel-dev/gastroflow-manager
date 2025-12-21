@@ -1,6 +1,7 @@
 import { Settings, User, Store, Bell, Shield, Database, Palette, Save } from 'lucide-react';
 import { useState } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
+import PageTransition from '@/components/layout/PageTransition';
 
 const Configuracion = () => {
   const { theme, toggleTheme } = useTheme();
@@ -16,7 +17,8 @@ const Configuracion = () => {
   ];
 
   return (
-    <div className="space-y-6">
+    <PageTransition>
+      <div className="space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
@@ -298,7 +300,8 @@ const Configuracion = () => {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </PageTransition>
   );
 };
 

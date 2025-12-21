@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Moon, Sun, Mail, Lock, Eye, EyeOff, UserCircle, Loader2 } from 'lucide-react';
+import PageTransition from '@/components/layout/PageTransition';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -30,36 +31,36 @@ const Login = () => {
   };
 
   return (
-    <div className="theme-transition min-h-screen flex items-center justify-center p-4 bg-secondary dark:bg-brand-darker">
-      <div className="w-full max-w-md bg-card dark:bg-brand-dark rounded-2xl shadow-2xl overflow-hidden relative">
+    <div className="theme-transition min-h-screen flex items-center justify-center p-3 sm:p-4 bg-secondary dark:bg-brand-darker">
+      <PageTransition className="w-full max-w-[380px] bg-card dark:bg-brand-dark rounded-xl shadow-2xl overflow-hidden relative">
         {/* Theme Toggle Button */}
         <button
           onClick={toggleTheme}
-          className="absolute top-4 right-4 p-2 rounded-full text-muted-foreground hover:bg-secondary dark:hover:bg-sidebar-accent transition-colors focus:outline-none"
+          className="absolute top-3 right-3 p-2 rounded-full text-muted-foreground hover:bg-secondary dark:hover:bg-sidebar-accent transition-colors focus:outline-none z-10"
           title="Cambiar tema"
         >
           {theme === 'light' ? (
-            <Moon className="w-5 h-5" />
+            <Moon className="w-4 h-4" />
           ) : (
-            <Sun className="w-5 h-5 text-primary" />
+            <Sun className="w-4 h-4 text-primary" />
           )}
         </button>
 
-        <div className="p-8 sm:p-10">
+        <div className="p-6 sm:p-8">
           {/* Header */}
-          <div className="text-center mb-10">
-            <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 mb-4 text-primary">
-              <UserCircle className="w-6 h-6" />
+          <div className="text-center mb-6">
+            <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 mb-3 text-primary">
+              <UserCircle className="w-5 h-5" />
             </div>
-            <h2 className="text-3xl font-bold text-foreground">Bienvenido</h2>
-            <p className="text-muted-foreground mt-2 text-sm">Ingresa tus credenciales para acceder</p>
+            <h2 className="text-2xl font-bold text-foreground">Bienvenido</h2>
+            <p className="text-muted-foreground mt-1 text-xs sm:text-sm">Ingresa tus credenciales para acceder</p>
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-4">
             {/* Email Input */}
             <div className="relative group">
-              <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1">
+              <label htmlFor="email" className="block text-xs sm:text-sm font-medium text-foreground mb-1">
                 Correo Electrónico
               </label>
               <div className="relative">
@@ -69,10 +70,9 @@ const Login = () => {
                 <input
                   type="email"
                   id="email"
-                  required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-3 border border-border rounded-lg bg-secondary dark:bg-brand-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-sm"
+                  className="block w-full pl-9 pr-3 py-2.5 border border-border rounded-lg bg-secondary dark:bg-brand-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-sm"
                   placeholder="nombre@ejemplo.com"
                 />
               </div>
@@ -81,10 +81,10 @@ const Login = () => {
             {/* Password Input */}
             <div className="relative group">
               <div className="flex items-center justify-between mb-1">
-                <label htmlFor="password" className="block text-sm font-medium text-foreground">
+                <label htmlFor="password" className="block text-xs sm:text-sm font-medium text-foreground">
                   Contraseña
                 </label>
-                <a href="#" className="text-sm font-medium text-primary hover:text-primary/80 transition-colors">
+                <a href="#" className="text-xs font-medium text-primary hover:text-primary/80 transition-colors">
                   ¿Olvidaste tu contraseña?
                 </a>
               </div>
@@ -95,10 +95,9 @@ const Login = () => {
                 <input
                   type={showPassword ? 'text' : 'password'}
                   id="password"
-                  required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full pl-10 pr-10 py-3 border border-border rounded-lg bg-secondary dark:bg-brand-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-sm"
+                  className="block w-full pl-9 pr-10 py-2.5 border border-border rounded-lg bg-secondary dark:bg-brand-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-sm"
                   placeholder="••••••••"
                 />
                 <button
@@ -112,7 +111,7 @@ const Login = () => {
             </div>
 
             {/* Remember Me Checkbox */}
-            <div className="flex items-center">
+            <div className="flex items-center pt-1">
               <input
                 id="remember-me"
                 name="remember-me"
@@ -121,7 +120,7 @@ const Login = () => {
                 onChange={(e) => setRememberMe(e.target.checked)}
                 className="h-4 w-4 text-primary focus:ring-primary border-border rounded cursor-pointer accent-primary"
               />
-              <label htmlFor="remember-me" className="ml-2 block text-sm text-foreground cursor-pointer select-none">
+              <label htmlFor="remember-me" className="ml-2 block text-xs sm:text-sm text-foreground cursor-pointer select-none">
                 Recordar dispositivo
               </label>
             </div>
@@ -130,7 +129,7 @@ const Login = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary dark:focus:ring-offset-brand-dark transition-all transform hover:-translate-y-0.5 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none"
+              className="w-full flex justify-center items-center gap-2 py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary dark:focus:ring-offset-brand-dark transition-all transform hover:-translate-y-0.5 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none mt-2"
             >
               {isLoading ? (
                 <>
@@ -143,7 +142,7 @@ const Login = () => {
             </button>
           </form>
         </div>
-      </div>
+      </PageTransition>
     </div>
   );
 };
