@@ -1,29 +1,20 @@
 import { Package, Plus, Search, MoreVertical, Download, Box, DollarSign, AlertTriangle, FolderOpen, Table2, Grid3x3, Edit, Trash2, Eye } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import PageTransition from '@/components/layout/PageTransition';
+import { useExchangeRate } from '@/contexts/ExchangeRateContext';
+import { useProduct, Product } from '@/contexts/ProductContext';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toast } from "sonner";
 
-interface Product {
-  id: string;
-  name: string;
-  category: string;
-  stock: number;
-  unit: string;
-  minStock: number;
-  price: number;
-  status: 'available' | 'low' | 'medium' | 'out';
-  image?: string;
-}
 
-const products: Product[] = [
-  { id: '#001', name: 'Queso Cheddar', category: 'Ingredientes', stock: 45.0, unit: 'Kg', minStock: 10, price: 120, status: 'available', image: 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=400&h=300&fit=crop' },
-  { id: '#002', name: 'Salsa de Tomate', category: 'Salsas', stock: 2.5, unit: 'Litros', minStock: 5, price: 35, status: 'low', image: 'https://images.unsplash.com/photo-1587486937554-68b1a45842f6?w=400&h=300&fit=crop' },
-  { id: '#003', name: 'Coca Cola 355ml', category: 'Bebidas', stock: 120, unit: 'Unidades', minStock: 50, price: 15, status: 'available', image: 'https://images.unsplash.com/photo-1554866585-cd94860890b7?w=400&h=300&fit=crop' },
-  { id: '#004', name: 'Pan de Hamburguesa', category: 'Panadería', stock: 50, unit: 'Paquetes', minStock: 30, price: 45, status: 'medium', image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&h=300&fit=crop' },
-  { id: '#005', name: 'Carne de Res', category: 'Carnes', stock: 0, unit: 'Kg', minStock: 20, price: 180, status: 'out', image: 'https://images.unsplash.com/photo-1603048588665-791ca8aea617?w=400&h=300&fit=crop' },
-  { id: '#006', name: 'Lechuga Fresca', category: 'Vegetales', stock: 15, unit: 'Kg', minStock: 10, price: 25, status: 'available', image: 'https://images.unsplash.com/photo-1622206151226-18ca2c9ab4a1?w=400&h=300&fit=crop' },
-  { id: '#007', name: 'Papas Fritas Congeladas', category: 'Congelados', stock: 8, unit: 'Bolsas', minStock: 15, price: 55, status: 'low', image: 'https://images.unsplash.com/photo-1598679253544-2c97992403ea?w=400&h=300&fit=crop' },
-  { id: '#008', name: 'Aceite Vegetal', category: 'Aceites', stock: 25, unit: 'Litros', minStock: 10, price: 42, status: 'available', image: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=400&h=300&fit=crop' },
-];
+
+
+// Initial products moved to context
+
 
 const statusConfig = {
   available: { label: 'Disponible', className: 'bg-success/10 text-success' },
@@ -33,12 +24,58 @@ const statusConfig = {
 };
 
 const InventarioGeneral = () => {
+  const { rate, lastUpdated, convert, formatBs, isLoading: isLoadingRate } = useExchangeRate();
+  const { products, addProduct } = useProduct();
   const [searchTerm, setSearchTerm] = useState('');
+
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('cards');
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [isAddProductOpen, setIsAddProductOpen] = useState(false);
+  const [newProduct, setNewProduct] = useState<Partial<Product>>({
+    name: '',
+    category: '',
+    stock: 0,
+    unit: 'Unidades',
+    minStock: 0,
+    price: 0,
+    status: 'available'
+  });
 
   const categories = ['all', ...new Set(products.map(p => p.category))];
+
+  const handleAddProduct = () => {
+    if (!newProduct.name || !newProduct.price) {
+      toast.error("Por favor completa los campos requeridos");
+      return;
+    }
+
+    const product: Product = {
+      id: `#${(products.length + 1).toString().padStart(3, '0')}`,
+      name: newProduct.name || '',
+      category: newProduct.category || 'General',
+      stock: newProduct.stock || 0,
+      unit: newProduct.unit || 'Unidades',
+      minStock: newProduct.minStock || 0,
+      price: newProduct.price || 0,
+      status: 'available',
+      image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&h=300&fit=crop' // Placeholder
+    };
+
+    addProduct(product);
+    setIsAddProductOpen(false);
+
+    setNewProduct({
+      name: '',
+      category: '',
+      stock: 0,
+      unit: 'Unidades',
+      minStock: 0,
+      price: 0,
+      status: 'available'
+    });
+    toast.success("Producto agregado correctamente");
+  };
 
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -66,10 +103,10 @@ const InventarioGeneral = () => {
               <Download className="w-4 h-4" />
               Exportar
             </button>
-            <button type="button" className="button">
-              <Plus className="w-4 h-4" />
+            <Button onClick={() => setIsAddProductOpen(true)} className="button">
+              <Plus className="w-4 h-4 mr-2" />
               Nuevo Producto
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -194,7 +231,12 @@ const InventarioGeneral = () => {
                         {product.stock} {product.unit}
                       </td>
                       <td className="p-4 text-muted-foreground">{product.minStock} {product.unit}</td>
-                      <td className="p-4">${product.price}</td>
+                      <td className="p-4">
+                        <div className="flex flex-col">
+                          <span className="font-medium text-foreground">${product.price}</span>
+                          <span className="text-xs text-muted-foreground">{formatBs(convert(product.price))}</span>
+                        </div>
+                      </td>
                       <td className="p-4">
                         <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusConfig[product.status].className}`}>
                           {statusConfig[product.status].label}
@@ -323,7 +365,10 @@ const InventarioGeneral = () => {
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-muted-foreground">Precio</span>
-                        <span className="text-sm font-semibold text-foreground">${product.price}</span>
+                        <div className="flex flex-col items-end">
+                          <span className="text-sm font-semibold text-foreground">${product.price}</span>
+                          <span className="text-xs text-muted-foreground">{formatBs(convert(product.price))}</span>
+                        </div>
                       </div>
                       
                       {/* Status Badge */}
@@ -356,6 +401,97 @@ const InventarioGeneral = () => {
           </>
         )}
       </div>
+      <Dialog open={isAddProductOpen} onOpenChange={setIsAddProductOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Agregar Nuevo Producto</DialogTitle>
+            <DialogDescription>
+              Completa los detalles para agregar un nuevo producto al inventario.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="name" className="text-right">
+                Nombre
+              </Label>
+              <Input
+                id="name"
+                value={newProduct.name}
+                onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="category" className="text-right">
+                Categoría
+              </Label>
+              <Input
+                id="category"
+                value={newProduct.category}
+                onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="price" className="text-right">
+                Precio ($)
+              </Label>
+              <Input
+                id="price"
+                type="number"
+                value={newProduct.price}
+                onChange={(e) => setNewProduct({ ...newProduct, price: parseFloat(e.target.value) })}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="stock" className="text-right">
+                Stock
+              </Label>
+              <Input
+                id="stock"
+                type="number"
+                value={newProduct.stock}
+                onChange={(e) => setNewProduct({ ...newProduct, stock: parseFloat(e.target.value) })}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="unit" className="text-right">
+                Unidad
+              </Label>
+               <Select onValueChange={(val) => setNewProduct({ ...newProduct, unit: val })} defaultValue={newProduct.unit}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Selecciona una unidad" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Unidades">Unidades</SelectItem>
+                  <SelectItem value="Kg">Kg</SelectItem>
+                  <SelectItem value="Litros">Litros</SelectItem>
+                  <SelectItem value="Paquetes">Paquetes</SelectItem>
+                  <SelectItem value="Bolsas">Bolsas</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="minStock" className="text-right">
+                Min. Stock
+              </Label>
+              <Input
+                id="minStock"
+                type="number"
+                value={newProduct.minStock}
+                onChange={(e) => setNewProduct({ ...newProduct, minStock: parseFloat(e.target.value) })}
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="secondary" onClick={() => setIsAddProductOpen(false)}>Cancelar</Button>
+            <Button type="submit" onClick={handleAddProduct}>Guardar Producto</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </PageTransition>
   );
 };

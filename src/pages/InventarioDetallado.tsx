@@ -1,18 +1,12 @@
 import { ClipboardList, Search, Plus, Edit, Trash2, Folder, ChevronRight, X, Table2, Grid3x3, Save, List, Package, MoreVertical, Eye, Store } from 'lucide-react';
 import PageTransition from '@/components/layout/PageTransition';
 import { useState, useEffect } from 'react';
+import { useExchangeRate } from '@/contexts/ExchangeRateContext';
+import { useProduct, Product } from '@/contexts/ProductContext';
+import { toast } from 'sonner';
 
-interface Product {
-  id: string;
-  name: string;
-  category: string;
-  stock: number;
-  unit: string;
-  minStock: number;
-  price: number;
-  status: 'available' | 'low' | 'medium' | 'out';
-  image?: string;
-}
+// Removed local Product interface to use Context one
+
 
 interface Location {
   id: string;
@@ -27,6 +21,9 @@ const statusConfig = {
 };
 
 const InventarioDetallado = () => {
+  const { rate, convert, formatBs } = useExchangeRate();
+  const { products: generalProducts, recordMovement } = useProduct();
+
   const [locations, setLocations] = useState<Location[]>([
     { id: 'duarte-burguer', name: 'Duarte Burguer' },
     { id: 'bodega-san-antonio', name: 'Bodega San Antonio' },
@@ -43,19 +40,15 @@ const InventarioDetallado = () => {
   const [locationFormData, setLocationFormData] = useState({ name: '' });
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [products, setProducts] = useState<Record<string, Product[]>>({
-    'duarte-burguer': [
-      { id: '#001', name: 'Queso Cheddar', category: 'Ingredientes', stock: 45.0, unit: 'Kg', minStock: 10, price: 120, status: 'available', image: 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=400&h=300&fit=crop' },
-      { id: '#002', name: 'Salsa de Tomate', category: 'Salsas', stock: 2.5, unit: 'Litros', minStock: 5, price: 35, status: 'low', image: 'https://images.unsplash.com/photo-1587486937554-68b1a45842f6?w=400&h=300&fit=crop' },
-    ],
-    'bodega-san-antonio': [
-      { id: '#003', name: 'Coca Cola 355ml', category: 'Bebidas', stock: 120, unit: 'Unidades', minStock: 50, price: 15, status: 'available', image: 'https://images.unsplash.com/photo-1554866585-cd94860890b7?w=400&h=300&fit=crop' },
-    ],
-    'kiosko-will': [
-      { id: '#004', name: 'Pan de Hamburguesa', category: 'Panadería', stock: 50, unit: 'Paquetes', minStock: 30, price: 45, status: 'medium', image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&h=300&fit=crop' },
-    ],
+    'duarte-burguer': [],
+    'bodega-san-antonio': [],
+    'kiosko-will': [],
   });
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isAddingProduct, setIsAddingProduct] = useState(false);
+  
+  // New state for selecting from general inventory
+  const [selectedGeneralProductId, setSelectedGeneralProductId] = useState<string>('');
   const [formData, setFormData] = useState<Omit<Product, 'id'>>({
     name: '',
     category: '',
@@ -77,14 +70,48 @@ const InventarioDetallado = () => {
 
   const handleAddProduct = () => {
     if (!selectedLocation) return;
-    const newId = `#${String(currentProducts.length + 1).padStart(3, '0')}`;
-    const newProduct: Product = { ...formData, id: newId };
-    setProducts({
-      ...products,
-      [selectedLocation]: [...currentProducts, newProduct],
-    });
+    
+    // Logic for adding from General Inventory
+    if (selectedGeneralProductId) {
+       const generalProduct = generalProducts.find(p => p.id === selectedGeneralProductId);
+       if (!generalProduct) return;
+
+       if (formData.stock > generalProduct.stock) {
+           toast.error(`Stock insuficiente en inventario general. Disponible: ${generalProduct.stock}`);
+           return;
+       }
+
+       // Deduct from General Inventory
+       recordMovement(selectedGeneralProductId, formData.stock, 'out');
+       
+       const newId = `#${String(currentProducts.length + 1).padStart(3, '0')}-${Date.now()}`; // Unique ID
+       const newProduct: Product = { 
+           ...generalProduct, 
+           id: newId,
+           stock: formData.stock, // Override stock with selected quantity
+           // Optionally override other fields if editable
+       };
+       
+       setProducts({
+         ...products,
+         [selectedLocation]: [...currentProducts, newProduct],
+       });
+       
+       toast.success("Producto agregado del inventario general");
+    } else {
+        // Fallback for custom product creation (if user still wants to allow it, or just strictly from general)
+        // For now, let's assume we allow both but prioritizing general selection
+        const newId = `#${String(currentProducts.length + 1).padStart(3, '0')}`;
+        const newProduct: Product = { ...formData, id: newId };
+        setProducts({
+          ...products,
+          [selectedLocation]: [...currentProducts, newProduct],
+        });
+    }
+
     setIsAddingProduct(false);
     setFormData({ name: '', category: '', stock: 0, unit: '', minStock: 0, price: 0, status: 'available' });
+    setSelectedGeneralProductId('');
   };
 
   const handleEditProduct = (product: Product) => {
@@ -119,6 +146,7 @@ const InventarioDetallado = () => {
     setIsAddingProduct(false);
     setEditingProduct(null);
     setFormData({ name: '', category: '', stock: 0, unit: '', minStock: 0, price: 0, status: 'available' });
+    setSelectedGeneralProductId('');
   };
 
   // Actualizar título del header
@@ -296,6 +324,38 @@ const InventarioDetallado = () => {
                 </button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Select General Product */}
+                {!editingProduct && (
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-foreground mb-1">Seleccionar desde Inventario General</label>
+                    <select
+                        className="w-full px-4 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 bg-background"
+                        value={selectedGeneralProductId}
+                        onChange={(e) => {
+                            const pid = e.target.value;
+                            setSelectedGeneralProductId(pid);
+                            const gp = generalProducts.find(p => p.id === pid);
+                            if (gp) {
+                                setFormData({
+                                    ...formData,
+                                    name: gp.name,
+                                    category: gp.category,
+                                    unit: gp.unit,
+                                    minStock: gp.minStock,
+                                    price: gp.price,
+                                    status: gp.status
+                                });
+                            }
+                        }}
+                    >
+                        <option value="">-- Seleccionar Producto --</option>
+                        {generalProducts.map(p => (
+                            <option key={p.id} value={p.id}>{p.name} (Stock General: {p.stock})</option>
+                        ))}
+                    </select>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1">Nombre</label>
                   <input
@@ -303,6 +363,7 @@ const InventarioDetallado = () => {
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     className="w-full px-4 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 bg-background"
+                    disabled={!!selectedGeneralProductId}
                   />
                 </div>
                 <div>
@@ -312,10 +373,11 @@ const InventarioDetallado = () => {
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                     className="w-full px-4 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 bg-background"
+                     disabled={!!selectedGeneralProductId}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">Stock</label>
+                  <label className="block text-sm font-medium text-foreground mb-1">Cantidad a Agregar</label>
                   <input
                     type="number"
                     value={formData.stock}
@@ -330,10 +392,11 @@ const InventarioDetallado = () => {
                     value={formData.unit}
                     onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
                     className="w-full px-4 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 bg-background"
+                    disabled={!!selectedGeneralProductId}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">Stock Mínimo</label>
+                  <label className="block text-sm font-medium text-foreground mb-1">Stock Mínimo (Local)</label>
                   <input
                     type="number"
                     value={formData.minStock}
@@ -348,6 +411,7 @@ const InventarioDetallado = () => {
                     value={formData.price}
                     onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
                     className="w-full px-4 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 bg-background"
+                    disabled={!!selectedGeneralProductId}
                   />
                 </div>
                 <div>
@@ -356,6 +420,7 @@ const InventarioDetallado = () => {
                     value={formData.status}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value as Product['status'] })}
                     className="w-full px-4 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 bg-background"
+                     disabled={!!selectedGeneralProductId}
                   >
                     <option value="available">Disponible</option>
                     <option value="low">Bajo Stock</option>
@@ -412,7 +477,12 @@ const InventarioDetallado = () => {
                         {product.stock} {product.unit}
                       </td>
                       <td className="p-4 text-muted-foreground">{product.minStock} {product.unit}</td>
-                      <td className="p-4">${product.price}</td>
+                      <td className="p-4">
+                        <div className="flex flex-col">
+                          <span className="font-medium text-foreground">${product.price}</span>
+                          <span className="text-xs text-muted-foreground">{formatBs(convert(product.price))}</span>
+                        </div>
+                      </td>
                       <td className="p-4">
                         <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusConfig[product.status].className}`}>
                           {statusConfig[product.status].label}
@@ -545,7 +615,10 @@ const InventarioDetallado = () => {
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-muted-foreground">Precio</span>
-                        <span className="text-sm font-semibold text-foreground">${product.price}</span>
+                        <div className="flex flex-col items-end">
+                          <span className="text-sm font-semibold text-foreground">${product.price}</span>
+                          <span className="text-xs text-muted-foreground">{formatBs(convert(product.price))}</span>
+                        </div>
                       </div>
                       
                       {/* Status Badge */}

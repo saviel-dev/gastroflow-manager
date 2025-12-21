@@ -11,7 +11,6 @@ const Configuracion = () => {
     { id: 'general', label: 'General', icon: Store },
     { id: 'usuario', label: 'Usuario', icon: User },
     { id: 'notificaciones', label: 'Notificaciones', icon: Bell },
-    { id: 'seguridad', label: 'Seguridad', icon: Shield },
     { id: 'datos', label: 'Datos', icon: Database },
     { id: 'apariencia', label: 'Apariencia', icon: Palette },
   ];
@@ -188,42 +187,7 @@ const Configuracion = () => {
             </div>
           )}
 
-          {activeTab === 'seguridad' && (
-            <div className="bg-card rounded-xl shadow-sm overflow-hidden">
-              <div className="bg-[#222] p-4 border-b border-border">
-                <h2 className="text-lg font-bold text-white">Seguridad de la Cuenta</h2>
-              </div>
-              <div className="p-6 space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">Contraseña actual</label>
-                  <input
-                    type="password"
-                    placeholder="••••••••"
-                    className="w-full px-4 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 bg-background"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">Nueva contraseña</label>
-                  <input
-                    type="password"
-                    placeholder="••••••••"
-                    className="w-full px-4 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 bg-background"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">Confirmar nueva contraseña</label>
-                  <input
-                    type="password"
-                    placeholder="••••••••"
-                    className="w-full px-4 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 bg-background"
-                  />
-                </div>
-                <button className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm hover:bg-primary/90 transition-colors">
-                  Actualizar contraseña
-                </button>
-              </div>
-            </div>
-          )}
+
 
           {activeTab === 'datos' && (
             <div className="bg-card rounded-xl shadow-sm overflow-hidden">

@@ -2,8 +2,11 @@ import { AlertTriangle, TrendingUp, Coins, Wallet } from 'lucide-react';
 import StatCard from '@/components/dashboard/StatCard';
 import RecentMovements from '@/components/dashboard/RecentMovements';
 import PageTransition from '@/components/layout/PageTransition';
+import { useExchangeRate } from '@/contexts/ExchangeRateContext';
 
 const Dashboard = () => {
+  const { rate, lastUpdated, isLoading } = useExchangeRate();
+
   return (
     <PageTransition>
       {/* Summary Cards */}
@@ -17,10 +20,10 @@ const Dashboard = () => {
           iconBgColor="bg-amber-600"
         />
         <StatCard
-          title="Tasa Dólar"
-          value="Bs. 279.56"
+          title="Tasa BCV"
+          value={isLoading ? "Actualizando..." : `Bs. ${rate.toFixed(2)}`}
           icon={TrendingUp}
-          status="18-dic., 02:02 p. m."
+          status={lastUpdated || "Consultando..."}
           bgColor="bg-blue-600"
           iconBgColor="bg-blue-700"
         />
