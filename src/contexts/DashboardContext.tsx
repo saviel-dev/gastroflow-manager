@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { dashboardService, DashboardStats } from '@/services/dashboard.service';
+import { supabase } from '@/lib/supabase';
 import type { Movimiento } from '@/types/database.types';
 
 interface DashboardContextType {
@@ -40,6 +41,22 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   useEffect(() => {
     loadStats();
+
+    // Subscribe to realtime changes in inventory to update dashboard stats
+    const channel = supabase
+      .channel('dashboard-inventory-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'inventario_general' },
+        () => {
+          loadStats();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const refreshStats = async () => {

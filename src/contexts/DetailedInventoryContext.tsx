@@ -149,6 +149,7 @@ export const DetailedInventoryProvider: React.FC<{ children: React.ReactNode }> 
         [locationId]: (prev[locationId] || 0) + 1
       }));
       toast.success(`Producto "${product.name}" agregado exitosamente`);
+      addNotification('Nuevo Producto Detallado', `Se ha agregado "${product.name}" a la ubicación`, 'exito');
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Error al agregar producto';
       setError(errorMsg);
@@ -273,6 +274,7 @@ export const DetailedInventoryProvider: React.FC<{ children: React.ReactNode }> 
       }));
       
       toast.success(`Producto "${product.name}" actualizado exitosamente`);
+      addNotification('Producto Detallado Actualizado', `Se ha actualizado "${product.name}"`, 'info');
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Error al actualizar producto';
       setError(errorMsg);
@@ -300,6 +302,7 @@ export const DetailedInventoryProvider: React.FC<{ children: React.ReactNode }> 
       }));
       
       toast.success(`Producto "${product?.name || 'desconocido'}" eliminado exitosamente`);
+      addNotification('Producto Eliminado', `Se ha eliminado "${product?.name || 'producto'}" de la ubicación`, 'advertencia');
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Error al eliminar producto';
       setError(errorMsg);

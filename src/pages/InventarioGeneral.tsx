@@ -651,7 +651,13 @@ const InventarioGeneral = () => {
                 onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
                 className="col-span-3"
                 placeholder='salsas, bebidas, etc'
+                list="category-suggestions"
               />
+              <datalist id="category-suggestions">
+                {categories.filter(c => c !== 'all').map(cat => (
+                  <option key={cat} value={cat} />
+                ))}
+              </datalist>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="price" className="text-right">

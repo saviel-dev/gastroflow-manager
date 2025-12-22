@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { inventarioGeneralService } from '@/services/inventario-general.service';
 import { movimientosService } from '@/services/movimientos.service';
+import { useNotifications } from '@/contexts/NotificationContext';
 import type { InventarioGeneral } from '@/types/database.types';
 import { toast } from 'sonner';
 
@@ -81,6 +82,7 @@ export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { addNotification } = useNotifications();
 
   // Cargar productos al montar el componente
   useEffect(() => {
@@ -113,6 +115,7 @@ export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const mappedProduct = mapToProduct(createdProduct);
       setProducts([...products, mappedProduct]);
       toast.success(`Producto "${product.name}" agregado exitosamente`);
+      addNotification('Nuevo Producto', `Se ha agregado "${product.name}" al inventario general`, 'exito');
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Error al agregar producto';
       setError(errorMsg);
@@ -148,6 +151,7 @@ export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const mappedProduct = mapToProduct(updatedProduct);
       setProducts(products.map(p => p.id === product.id ? mappedProduct : p));
       toast.success(`Producto "${product.name}" actualizado exitosamente`);
+      addNotification('Producto Actualizado', `Se ha actualizado "${product.name}"`, 'info');
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Error al actualizar producto';
       setError(errorMsg);
@@ -167,6 +171,7 @@ export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setProducts(products.filter(p => p.id !== id));
       
       toast.success(`Producto "${product?.name || 'desconocido'}" eliminado exitosamente`);
+      addNotification('Producto Eliminado', `Se ha eliminado "${product?.name || 'producto'}" del inventario`, 'advertencia');
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Error al eliminar producto';
       setError(errorMsg);
