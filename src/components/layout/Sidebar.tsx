@@ -1,5 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useConfiguracion } from "@/hooks/useConfiguracion";
+import { useNotifications } from "@/contexts/NotificationContext";
 import {
   LayoutDashboard,
   Package,
@@ -11,6 +13,7 @@ import {
   UtensilsCrossed,
   ChevronLeft,
   ChevronRight,
+  Bell,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -33,11 +36,14 @@ const navItems = [
 ];
 
 const systemItems = [
+  { to: "/notificaciones", icon: Bell, label: "Notificaciones", badge: true },
   { to: "/configuracion", icon: Settings, label: "Configuración" },
 ];
 
 const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }: SidebarProps) => {
   const { user } = useAuth();
+  const { configuracion } = useConfiguracion('sistema.nombre');
+  const { unreadCount } = useNotifications();
 
   return (
     <>
@@ -59,7 +65,7 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }: SidebarProp
         <div className="p-4 flex items-center justify-between border-b border-sidebar-border">
           <div className="flex items-center gap-2 text-sidebar-foreground font-semibold text-lg tracking-wide">
             <UtensilsCrossed className="w-6 h-6" />
-            {!isCollapsed && <span>Auto-eat</span>}
+            {!isCollapsed && <span>{configuracion?.valor || "Auto-eat"}</span>}
           </div>
           <button
             onClick={onClose}
@@ -107,15 +113,29 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }: SidebarProp
                   onClick={onClose}
                   title={isCollapsed ? item.label : undefined}
                   className={({ isActive }) =>
-                    `flex items-center ${isCollapsed ? 'justify-center' : 'gap-2'} px-3 py-2 text-sm rounded-lg font-medium transition-colors duration-200 group ${
+                    `flex items-center ${isCollapsed ? 'justify-center' : 'gap-2'} px-3 py-2 text-sm rounded-lg font-medium transition-colors duration-200 group relative ${
                       isActive
                         ? "bg-sidebar-accent text-sidebar-accent-foreground"
                         : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                     }`
                   }
                 >
-                  <item.icon className="w-5 h-5" />
-                  {!isCollapsed && <span>{item.label}</span>}
+                  <div className="relative">
+                    <item.icon className="w-5 h-5" />
+                    {item.badge && unreadCount > 0 && isCollapsed && (
+                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-primary rounded-full border-2 border-sidebar" />
+                    )}
+                  </div>
+                  {!isCollapsed && (
+                    <div className="flex flex-1 items-center justify-between">
+                      <span>{item.label}</span>
+                      {item.badge && unreadCount > 0 && (
+                        <span className="bg-primary text-primary-foreground text-[10px] px-2 py-0.5 rounded-full font-bold">
+                          {unreadCount > 99 ? '99+' : unreadCount}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </NavLink>
               </li>
             ))}
@@ -138,17 +158,17 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }: SidebarProp
         <div className="p-3 border-t border-sidebar-border bg-foreground/5">
           <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'}`}>
             <img
-              src="https://i.pravatar.cc/150?img=11"
-              alt="Admin"
-              className="w-8 h-8 rounded-full border-2 border-primary"
+              src={user?.avatar_url || "https://i.pravatar.cc/150?img=11"}
+              alt={user?.nombre || "Usuario"}
+              className="w-8 h-8 rounded-full border-2 border-primary object-cover"
             />
             {!isCollapsed && (
-              <div>
-                <p className="text-sm font-medium text-sidebar-foreground">
-                  {user?.name || "Usuario"}
+              <div className="overflow-hidden">
+                <p className="text-sm font-medium text-sidebar-foreground truncate" title={`${user?.nombre || ''} ${user?.apellidos || ''}`.trim()}>
+                  {user ? `${user.nombre} ${user.apellidos}` : "Usuario"}
                 </p>
-                <p className="text-xs text-muted-foreground">
-                  {user?.role || "Rol"}
+                <p className="text-xs text-muted-foreground capitalize truncate">
+                  {user?.rol || "Rol"}
                 </p>
               </div>
             )}

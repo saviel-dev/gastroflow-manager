@@ -1,4 +1,8 @@
-import { ClipboardList, Search, Plus, Edit, Trash2, Folder, ChevronRight, X, Table2, Grid3x3, Save, List, Package, MoreVertical, Eye, Store } from 'lucide-react';
+import { ClipboardList, Search, Plus, Edit, Trash2, Folder, ChevronRight, X, Table2, Grid3x3, Save, List, Package, MoreVertical, Eye, Store, DollarSign, AlertTriangle, Box, Download, FileText, FileSpreadsheet, ChevronDown, Loader2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import PageTransition from '@/components/layout/PageTransition';
 import { useState, useEffect, useRef } from 'react';
 import { useExchangeRate } from '@/contexts/ExchangeRateContext';
@@ -35,7 +39,8 @@ const InventarioDetallado = () => {
     transferFromGeneral,
     updateProduct: updateDetailedProduct,
     deleteProduct: deleteDetailedProduct,
-    refreshLocation
+    refreshLocation,
+    getProductCount
   } = useDetailedInventory();
 
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
@@ -51,10 +56,35 @@ const InventarioDetallado = () => {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // New state for selecting from general inventory
   const [selectedGeneralProductId, setSelectedGeneralProductId] = useState<string>('');
+  const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
+  
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 9;
+
+  // Auto-switch to cards on mobile
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        setViewMode('cards');
+        setLocationViewMode('cards');
+      }
+    };
+
+    // Check on mount
+    handleResize();
+
+    // Check on resize
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const [formData, setFormData] = useState<Partial<Product>>({
     name: '',
     category: '',
@@ -77,6 +107,22 @@ const InventarioDetallado = () => {
     const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
+
+  // Calculate Stats
+  const totalLocations = locations.length;
+  const totalProducts = currentProducts.length;
+  const totalValue = currentProducts.reduce((acc, p) => acc + (p.stock * p.price), 0);
+  const lowStockCount = currentProducts.filter(p => p.status === 'low' || p.status === 'out').length;
+
+  // Pagination Logic
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedCategory]);
+
+  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedProducts = filteredProducts.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, filteredProducts.length);
 
   const handleAddProduct = async () => {
     if (!selectedLocation) return;
@@ -111,6 +157,30 @@ const InventarioDetallado = () => {
       setImagePreview(null);
     } catch (error) {
       console.error('Error al agregar producto:', error);
+    }
+  };
+
+  const handleExport = async (type: 'pdf' | 'excel') => {
+    if (!selectedLocation) return;
+    const locationName = locations.find(l => l.id === selectedLocation)?.name || 'Ubicación Desconocida';
+    
+    setExportMenuOpen(false);
+    setExporting(true);
+    try {
+      const { generateDetailedProductListPDF, generateDetailedProductListExcel } = await import('@/utils/report-export.utils');
+      
+      if (type === 'pdf') {
+        await generateDetailedProductListPDF(filteredProducts, locationName);
+        toast.success("Reporte PDF generado exitosamente");
+      } else {
+        await generateDetailedProductListExcel(filteredProducts, locationName);
+        toast.success("Reporte Excel generado exitosamente");
+      }
+    } catch (error) {
+      console.error('Error al exportar:', error);
+      toast.error("Error al generar el reporte");
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -261,15 +331,104 @@ const InventarioDetallado = () => {
               <p className="text-muted-foreground text-xs sm:text-sm mt-1">Gestión de inventario</p>
             </div>
           </div>
-          <button
-            onClick={() => setIsAddingProduct(true)}
-            type="button"
-            className="button w-full sm:w-auto sm:self-end"
-          >
-            <Plus className="w-4 h-4" />
-            Agregar Producto
-          </button>
+          <div className="flex gap-2 w-full sm:w-auto sm:self-end">
+            <div className="relative">
+              <button 
+                onClick={() => setExportMenuOpen(!exportMenuOpen)}
+                disabled={exporting || !selectedLocation}
+                className="px-4 py-2 bg-background border border-border rounded-lg text-sm hover:bg-secondary transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed h-full text-foreground"
+              >
+                {exporting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Exportando...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4" />
+                    Exportar
+                    <ChevronDown className="w-3 h-3" />
+                  </>
+                )}
+              </button>
+              
+              {exportMenuOpen && !exporting && (
+                <div className="absolute right-0 mt-2 w-56 bg-popover border border-border rounded-lg shadow-lg z-10 overflow-hidden">
+                  <button
+                    onClick={() => handleExport('pdf')}
+                    className="w-full px-4 py-3 text-left hover:bg-accent transition-colors flex items-center gap-3 text-sm"
+                  >
+                    <FileText className="w-4 h-4 text-red-500" />
+                    <div>
+                      <div className="font-medium">Exportar como PDF</div>
+                      <div className="text-xs text-muted-foreground">Tabla dinámica</div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => handleExport('excel')}
+                    className="w-full px-4 py-3 text-left hover:bg-accent transition-colors flex items-center gap-3 text-sm border-t border-border"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-green-600" />
+                    <div>
+                      <div className="font-medium">Exportar como Excel</div>
+                      <div className="text-xs text-muted-foreground">Datos completos</div>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
+            <button
+              onClick={() => setIsAddingProduct(true)}
+              type="button"
+              className="button"
+            >
+              <Plus className="w-4 h-4" />
+              Agregar Producto
+            </button>
+          </div>
         </div>
+
+        {/* Stats Cards (Only visible when location is selected) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-card p-4 rounded-xl border border-border flex items-center gap-4">
+              <div className="bg-blue-100 dark:bg-blue-900/30 p-3 rounded-lg">
+                <Box className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Total Productos</p>
+                <div className="flex items-baseline gap-2">
+                  <h3 className="text-2xl font-bold text-foreground">{totalProducts}</h3>
+                  <span className="text-xs text-muted-foreground">items</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-card p-4 rounded-xl border border-border flex items-center gap-4">
+              <div className="bg-green-100 dark:bg-green-900/30 p-3 rounded-lg">
+                <DollarSign className="w-6 h-6 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Valor Total</p>
+                <div className="flex flex-col">
+                  <h3 className="text-2xl font-bold text-foreground">${totalValue.toFixed(2)}</h3>
+                  <span className="text-xs text-muted-foreground">{formatBs(convert(totalValue))}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-card p-4 rounded-xl border border-border flex items-center gap-4">
+              <div className="bg-red-100 dark:bg-red-900/30 p-3 rounded-lg">
+                <AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-400" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Bajo Stock</p>
+                 <div className="flex items-baseline gap-2">
+                  <h3 className="text-2xl font-bold text-foreground">{lowStockCount}</h3>
+                  <span className="text-xs text-muted-foreground">alertas</span>
+                </div>
+              </div>
+            </div>
+          </div>
 
         {/* Filters */}
         <div className="bg-card rounded-xl shadow-sm p-3 sm:p-4">
@@ -528,7 +687,6 @@ const InventarioDetallado = () => {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-[#222] text-white text-xs uppercase tracking-wider">
-                    <th className="p-4 font-medium text-center">ID</th>
                     <th className="p-4 font-medium text-center">Producto</th>
                     <th className="p-4 font-medium text-center">Categoría</th>
                     <th className="p-4 font-medium text-center">Stock</th>
@@ -539,9 +697,8 @@ const InventarioDetallado = () => {
                   </tr>
                 </thead>
                 <tbody className="text-sm text-foreground divide-y divide-border">
-                  {filteredProducts.map((product) => (
+                  {paginatedProducts.map((product) => (
                     <tr key={product.id} className="hover:bg-primary/5 transition-colors">
-                      <td className="p-4 font-medium text-muted-foreground">{product.id}</td>
                       <td className="p-4 font-semibold">{product.name}</td>
                       <td className="p-4">
                         <span className="px-2 py-1 bg-secondary rounded text-xs">{product.category}</span>
@@ -561,17 +718,28 @@ const InventarioDetallado = () => {
                           {statusConfig[product.status].label}
                         </span>
                       </td>
-                      <td className="p-4 text-center">
-                        <div className="flex justify-center gap-2">
+                      <td className="p-4 text-right relative">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => {
+                              setViewingProduct(product);
+                            }}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Ver detalles"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
                           <button
                             onClick={() => handleEditProduct(product)}
-                            className="p-2 text-blue-500 hover:bg-blue-500/10 rounded-lg transition-colors"
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Editar"
                           >
                             <Edit className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleDeleteProduct(product.id)}
-                            className="p-2 text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Eliminar"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -587,17 +755,53 @@ const InventarioDetallado = () => {
                 No hay productos para mostrar
               </div>
             )}
+            
+            {/* Pagination for Table */}
+             <div className="p-4 border-t border-border flex justify-between items-center">
+              <p className="text-sm text-muted-foreground">
+                Mostrando {filteredProducts.length > 0 ? startIndex + 1 : 0} - {endIndex} de {filteredProducts.length} productos
+              </p>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1 border border-border rounded hover:bg-secondary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Anterior
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`px-3 py-1 rounded text-sm ${
+                      currentPage === page
+                        ? 'bg-primary text-primary-foreground'
+                        : 'border border-border hover:bg-secondary'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+                <button 
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages || totalPages === 0}
+                  className="px-3 py-1 border border-border rounded hover:bg-secondary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Siguiente
+                </button>
+              </div>
+            </div>
           </div>
         ) : (
           <div className="bg-card rounded-xl shadow-sm p-3 sm:p-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-              {filteredProducts.map((product) => (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {paginatedProducts.map((product) => (
                 <div 
                   key={product.id} 
-                  className="bg-card border border-border rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300 group"
+                  className="bg-card border border-border rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300 group relative"
                 >
                   {/* Product Image */}
-                  <div className="relative h-48 bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden">
+                  <div className="relative h-32 bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden">
                     {product.image ? (
                       <img 
                         src={product.image} 
@@ -609,69 +813,69 @@ const InventarioDetallado = () => {
                         <Package className="w-16 h-16 text-gray-400" />
                       </div>
                     )}
-                    {/* Actions Menu */}
-                    <div className="absolute top-3 right-3">
-                      <button 
-                        onClick={() => setOpenDropdown(openDropdown === product.id ? null : product.id)}
-                        className="p-2 bg-white/90 backdrop-blur-sm rounded-lg text-foreground hover:bg-white transition-colors shadow-md"
-                      >
-                        <MoreVertical className="w-4 h-4" />
-                      </button>
-                      
-                      {/* Dropdown Menu */}
-                      {openDropdown === product.id && (
-                        <>
-                          <div 
-                            className="fixed inset-0 z-10" 
-                            onClick={() => setOpenDropdown(null)}
-                          />
-                          <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-border z-20 overflow-hidden">
-                            <button
-                              onClick={() => {
-                                console.log('Ver detalles:', product.id);
-                                setOpenDropdown(null);
-                              }}
-                              className="w-full px-4 py-2.5 text-left text-sm hover:bg-secondary transition-colors flex items-center gap-3"
-                            >
-                              <Eye className="w-4 h-4 text-blue-500" />
-                              <span>Ver detalles</span>
-                            </button>
-                            <button
-                              onClick={() => {
-                                handleEditProduct(product);
-                                setOpenDropdown(null);
-                              }}
-                              className="w-full px-4 py-2.5 text-left text-sm hover:bg-secondary transition-colors flex items-center gap-3"
-                            >
-                              <Edit className="w-4 h-4 text-green-500" />
-                              <span>Editar</span>
-                            </button>
-                            <button
-                              onClick={() => {
-                                handleDeleteProduct(product.id);
-                                setOpenDropdown(null);
-                              }}
-                              className="w-full px-4 py-2.5 text-left text-sm hover:bg-destructive/10 text-destructive transition-colors flex items-center gap-3 border-t border-border"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                              <span>Eliminar</span>
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
+                  </div>
+                    
+                  {/* Actions Menu */}
+                  <div className="absolute top-3 right-3 z-10">
+                    <button 
+                      onClick={() => setOpenDropdown(openDropdown === product.id ? null : product.id)}
+                      className="p-2 bg-white/90 backdrop-blur-sm rounded-lg text-foreground hover:bg-white transition-colors shadow-md"
+                    >
+                      <MoreVertical className="w-4 h-4 cancel-drag" />
+                    </button>
+                    
+                    {/* Dropdown Menu */}
+                    {openDropdown === product.id && (
+                      <>
+                        <div 
+                          className="fixed inset-0 z-10" 
+                          onClick={() => setOpenDropdown(null)}
+                        />
+                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-border z-20 overflow-hidden">
+                          <button
+                             onClick={() => {
+                              setViewingProduct(product);
+                              setOpenDropdown(null);
+                            }}
+                            className="w-full px-4 py-2.5 text-left text-sm hover:bg-secondary transition-colors flex items-center gap-3"
+                          >
+                            <Eye className="w-4 h-4 text-blue-500" />
+                            <span>Ver detalles</span>
+                          </button>
+                          <button
+                            onClick={() => {
+                              handleEditProduct(product);
+                              setOpenDropdown(null);
+                            }}
+                            className="w-full px-4 py-2.5 text-left text-sm hover:bg-secondary transition-colors flex items-center gap-3"
+                          >
+                            <Edit className="w-4 h-4 text-green-500" />
+                            <span>Editar</span>
+                          </button>
+                          <button
+                            onClick={() => {
+                              setOpenDropdown(null);
+                              handleDeleteProduct(product.id);
+                            }}
+                            className="w-full px-4 py-2.5 text-left text-sm hover:bg-destructive/10 text-destructive transition-colors flex items-center gap-3 border-t border-border"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            <span>Eliminar</span>
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   {/* Card Content */}
-                  <div className="p-4">
+                  <div className="p-3">
                     {/* Header */}
-                    <div className="mb-3">
-                      <p className="text-xs text-muted-foreground font-medium">{product.id}</p>
-                      <h3 className="text-lg font-semibold text-foreground mt-1 line-clamp-1">{product.name}</h3>
+                    <div className="mb-2">
+                      <h3 className="text-base font-semibold text-foreground line-clamp-1">{product.name}</h3>
                     </div>
 
                     {/* Details */}
-                    <div className="space-y-2.5">
+                    <div className="space-y-1.5">
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-muted-foreground">Categoría</span>
                         <span className="text-sm font-medium text-foreground">{product.category}</span>
@@ -711,9 +915,150 @@ const InventarioDetallado = () => {
                 No hay productos para mostrar
               </div>
             )}
+
+            {/* Pagination for Cards */}
+            <div className="mt-6 bg-card rounded-xl shadow-sm p-4">
+              <div className="flex justify-between items-center">
+                <p className="text-sm text-muted-foreground">
+                  Mostrando {filteredProducts.length > 0 ? startIndex + 1 : 0} - {endIndex} de {filteredProducts.length} productos
+                </p>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 border border-border rounded hover:bg-secondary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Anterior
+                  </button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`px-3 py-1 rounded text-sm ${
+                        currentPage === page
+                          ? 'bg-primary text-primary-foreground'
+                          : 'border border-border hover:bg-secondary'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                  <button 
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages || totalPages === 0}
+                    className="px-3 py-1 border border-border rounded hover:bg-secondary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Siguiente
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
         </div>
+        
+         {/* View Details Modal */}
+        <Dialog open={!!viewingProduct} onOpenChange={(open) => !open && setViewingProduct(null)}>
+          <DialogContent className="sm:max-w-[700px]">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold flex items-center gap-2">
+                <Package className="w-5 h-5 text-primary" />
+                Detalles del Producto
+              </DialogTitle>
+              <DialogDescription>
+                Información detallada del producto seleccionado.
+              </DialogDescription>
+            </DialogHeader>
+            
+            {viewingProduct && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
+                {/* Image Section */}
+                <div className="relative h-64 md:h-full bg-secondary/20 rounded-xl overflow-hidden border border-border">
+                  {viewingProduct.image ? (
+                    <img 
+                      src={viewingProduct.image} 
+                      alt={viewingProduct.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center flex-col gap-3 text-muted-foreground">
+                      <Package className="w-16 h-16 opacity-50" />
+                      <span className="text-sm">Sin imagen</span>
+                    </div>
+                  )}
+                  <div className={`absolute top-4 right-4 px-3 py-1 rounded-full text-xs font-semibold shadow-sm ${statusConfig[viewingProduct.status].className}`}>
+                    {statusConfig[viewingProduct.status].label}
+                  </div>
+                </div>
+
+                {/* Details Section */}
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-2xl font-bold text-foreground mb-1">{viewingProduct.name}</h3>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 bg-secondary rounded text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        {viewingProduct.category}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-3 bg-secondary/10 rounded-lg border border-border">
+                      <span className="text-xs text-muted-foreground block mb-1">Stock Actual</span>
+                      <div className={`text-lg font-bold ${viewingProduct.status === 'low' || viewingProduct.status === 'out' ? 'text-destructive' : 'text-foreground'}`}>
+                        {viewingProduct.stock} <span className="text-xs font-normal text-muted-foreground">{viewingProduct.unit}</span>
+                      </div>
+                    </div>
+                    <div className="p-3 bg-secondary/10 rounded-lg border border-border">
+                      <span className="text-xs text-muted-foreground block mb-1">Stock Mínimo</span>
+                      <div className="text-lg font-semibold text-foreground">
+                        {viewingProduct.minStock} <span className="text-xs font-normal text-muted-foreground">{viewingProduct.unit}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-primary/5 rounded-xl border border-primary/10">
+                    <span className="text-sm font-medium text-primary block mb-2">Precio de Venta</span>
+                    <div className="flex items-baseline justify-between">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-3xl font-bold text-foreground">${viewingProduct.price}</span>
+                        <span className="text-sm text-muted-foreground">USD</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xl font-bold text-foreground">{formatBs(convert(viewingProduct.price))}</div>
+                        <span className="text-xs text-muted-foreground">Bolívares</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions in Modal */}
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      onClick={() => {
+                        handleEditProduct(viewingProduct);
+                        setViewingProduct(null);
+                      }}
+                       className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-secondary hover:bg-secondary/80 text-foreground rounded-lg transition-colors font-medium text-sm"
+                    >
+                      <Edit className="w-4 h-4" />
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleDeleteProduct(viewingProduct.id);
+                        setViewingProduct(null);
+                      }}
+                       className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-destructive/10 hover:bg-destructive/20 text-destructive rounded-lg transition-colors font-medium text-sm border border-destructive/20"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Eliminar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </PageTransition>
     );
   }
@@ -833,7 +1178,7 @@ const InventarioDetallado = () => {
                   {location.name}
                 </h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {getProductsByLocation(location.id)?.length || 0} productos
+                  {getProductCount(location.id)} productos
                 </p>
               </div>
 
@@ -886,7 +1231,7 @@ const InventarioDetallado = () => {
                       </button>
                     </td>
                     <td className="p-4 text-center text-muted-foreground">
-                      {getProductsByLocation(location.id)?.length || 0} productos
+                      {getProductCount(location.id)} productos
                     </td>
                     <td className="p-4 text-center">
                       <div className="flex justify-center gap-2">

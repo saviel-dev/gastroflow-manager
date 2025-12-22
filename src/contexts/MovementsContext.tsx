@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { movimientosService } from '@/services/movimientos.service';
 import { inventarioGeneralService } from '@/services/inventario-general.service';
 import { inventarioDetalladoService } from '@/services/inventario-detallado.service';
-import type { Movimiento } from '@/types/database.types';
+import type { Movimiento, InsertMovimiento } from '@/types/database.types';
 import { toast } from 'sonner';
 
 // Interfaz para movimiento en el frontend
@@ -36,6 +36,9 @@ interface MovementsContextType {
   refreshMovements: () => Promise<void>;
   getMovementsByType: (type: string) => Movement[];
   getMovementsToday: () => Movement[];
+  deleteMovement: (id: string) => Promise<void>;
+  updateMovement: (id: string, movement: Partial<InsertMovimiento>) => Promise<void>;
+  createMovement: (movement: InsertMovimiento) => Promise<void>;
 }
 
 const MovementsContext = createContext<MovementsContextType | undefined>(undefined);
@@ -188,6 +191,51 @@ export const MovementsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return movements.filter(m => m.date === today);
   }, [movements]);
 
+  const createMovement = async (movement: InsertMovimiento) => {
+    try {
+      setLoading(true);
+      await movimientosService.registrar(movement);
+      await loadMovements();
+      toast.success('Movimiento registrado exitosamente');
+    } catch (error) {
+      console.error('Error al crear movimiento:', error);
+      toast.error('Error al registrar movimiento');
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateMovement = async (id: string, movement: Partial<InsertMovimiento>) => {
+    try {
+      setLoading(true);
+      await movimientosService.actualizar(id, movement);
+      await loadMovements();
+      toast.success('Movimiento actualizado');
+    } catch (error) {
+      console.error('Error al actualizar movimiento:', error);
+      toast.error('Error al actualizar movimiento');
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteMovement = async (id: string) => {
+    try {
+      setLoading(true);
+      await movimientosService.eliminar(id);
+      await loadMovements();
+      toast.success('Movimiento eliminado');
+    } catch (error) {
+      console.error('Error al eliminar movimiento:', error);
+      toast.error('Error al eliminar movimiento');
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <MovementsContext.Provider
       value={{
@@ -198,6 +246,9 @@ export const MovementsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         refreshMovements,
         getMovementsByType,
         getMovementsToday,
+        createMovement,
+        updateMovement,
+        deleteMovement,
       }}
     >
       {children}

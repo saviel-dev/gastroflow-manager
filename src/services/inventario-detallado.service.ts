@@ -1,11 +1,14 @@
-import { supabase, handleSupabaseError } from '@/lib/supabase';
-import type { InventarioDetallado, InsertInventarioDetallado, UpdateInventarioDetallado } from '@/types/database.types';
+import { SupabaseClient } from '@supabase/supabase-js';
+import { supabase as supabaseRaw, handleSupabaseError } from '@/lib/supabase';
+import type { InventarioDetallado, InsertInventarioDetallado, UpdateInventarioDetallado, Database } from '@/types/database.types';
+
+const supabase = supabaseRaw as SupabaseClient<Database>;
 
 /**
  * Servicio para gestionar el inventario detallado por negocio
  */
 class InventarioDetalladoService {
-  private readonly tabla = 'inventario_detallado';
+  private readonly tabla = 'inventario_detallado' as const;
 
   /**
    * Obtener todos los productos de un negocio
@@ -104,8 +107,8 @@ class InventarioDetalladoService {
    */
   async crear(producto: InsertInventarioDetallado): Promise<InventarioDetallado> {
     try {
-      const { data, error } = await supabase
-        .from(this.tabla)
+      const { data, error } = await (supabase
+        .from('inventario_detallado') as any)
         .insert(producto)
         .select()
         .single();
@@ -123,8 +126,8 @@ class InventarioDetalladoService {
    */
   async actualizar(id: string, actualizacion: UpdateInventarioDetallado): Promise<InventarioDetallado> {
     try {
-      const { data, error } = await supabase
-        .from(this.tabla)
+      const { data, error } = await (supabase
+        .from('inventario_detallado') as any)
         .update(actualizacion)
         .eq('id', id)
         .select()
@@ -173,8 +176,8 @@ class InventarioDetalladoService {
    */
   async eliminar(id: string): Promise<void> {
     try {
-      const { error } = await supabase
-        .from(this.tabla)
+      const { error } = await (supabase
+        .from('inventario_detallado') as any)
         .update({ activo: false })
         .eq('id', id);
 
@@ -219,6 +222,33 @@ class InventarioDetalladoService {
       };
     } catch (error) {
       console.error('Error al obtener estadísticas:', error);
+      throw new Error(handleSupabaseError(error));
+    }
+  }
+
+  /**
+   * Obtener conteo de productos por negocio de forma eficiente
+   */
+  async obtenerConteosGlobal(): Promise<Record<string, number>> {
+    try {
+      const { data, error } = await supabase
+        .from(this.tabla)
+        .select('negocio_id')
+        .eq('activo', true);
+
+      if (error) throw error;
+
+      // Agrupar y contar por negocio_id
+      const conteos: Record<string, number> = {};
+      (data as any[])?.forEach(item => {
+        if (item.negocio_id) {
+          conteos[item.negocio_id] = (conteos[item.negocio_id] || 0) + 1;
+        }
+      });
+
+      return conteos;
+    } catch (error) {
+      console.error('Error al obtener conteos globales:', error);
       throw new Error(handleSupabaseError(error));
     }
   }

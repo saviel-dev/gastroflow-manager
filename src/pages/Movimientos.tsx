@@ -1,9 +1,10 @@
-import { ArrowLeftRight, Search, Calendar, Table2, Grid3x3, ArrowDownCircle, ArrowUpCircle, RefreshCw, AlertTriangle, Loader2, Plus } from 'lucide-react';
+import { ArrowLeftRight, Search, Calendar, Table2, Grid3x3, ArrowDownCircle, ArrowUpCircle, RefreshCw, AlertTriangle, Loader2, Plus, Edit, Trash2, X, Save } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import PageTransition from '@/components/layout/PageTransition';
 import { useMovements } from '@/contexts/MovementsContext';
-
-
+import { useProduct } from '@/contexts/ProductContext';
+import { toast } from 'sonner';
+import type { InsertMovimiento } from '@/types/database.types';
 
 const typeConfig = {
   entrada: { label: 'Entrada', icon: ArrowDownCircle, className: 'bg-success/10 text-success', bgColor: 'bg-green-500', iconBg: 'bg-green-600' },
@@ -18,7 +19,21 @@ const Movimientos = () => {
   const [dateFilter, setDateFilter] = useState('');
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('cards');
   
-  const { movements, loading, error, statistics, refreshMovements } = useMovements();
+  // Modal state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingMovement, setEditingMovement] = useState<string | null>(null);
+  const [formData, setFormData] = useState<Partial<InsertMovimiento>>({
+    tipo: 'entrada',
+    tipo_inventario: 'general',
+    cantidad: 1,
+    unidad: 'unidades',
+    motivo: '',
+    notas: '',
+    referencia: 'MANUAL'
+  });
+
+  const { movements, loading, error, statistics, refreshMovements, createMovement, updateMovement, deleteMovement } = useMovements();
+  const { products } = useProduct();
 
   // Actualizar título del header
   useEffect(() => {
@@ -35,7 +50,70 @@ const Movimientos = () => {
     return matchesSearch && matchesType && matchesDate;
   });
 
-  // Los stats vienen del contexto
+  const handleOpenModal = (movementId?: string) => {
+    if (movementId) {
+      const movement = movements.find(m => m.id === movementId);
+      if (movement) {
+        setEditingMovement(movementId);
+        // Encontrar el ID del producto basado en el nombre (not ideal but works with current structure)
+        const product = products.find(p => p.name === movement.product);
+        
+        setFormData({
+          producto_id: product?.id || '',
+          tipo: movement.type,
+          tipo_inventario: 'general', // Asumimos general por ahora
+          cantidad: movement.quantity,
+          unidad: movement.unit,
+          motivo: movement.reason,
+          notas: '', // No tenemos notas en la interfaz Movement actual
+          referencia: 'MANUAL'
+        });
+      }
+    } else {
+      setEditingMovement(null);
+      setFormData({
+        tipo: 'entrada',
+        tipo_inventario: 'general',
+        cantidad: 1,
+        unidad: 'unidades',
+        motivo: '',
+        notas: '',
+        referencia: 'MANUAL'
+      });
+    }
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setEditingMovement(null);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (!formData.producto_id) {
+        toast.error('Selecciona un producto');
+        return;
+      }
+
+      if (editingMovement) {
+          await updateMovement(editingMovement, formData);
+      } else {
+          // Aseguramos que data necesaria esté presente
+          await createMovement(formData as InsertMovimiento);
+      }
+      handleCloseModal();
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirm('¿Estás seguro de eliminar este movimiento?')) {
+      await deleteMovement(id);
+    }
+  };
 
   return (
     <PageTransition>
@@ -152,6 +230,7 @@ const Movimientos = () => {
               {/* Add Button */}
               <button
                 type="button"
+                onClick={() => handleOpenModal()}
                 className="button flex-1 sm:flex-none whitespace-nowrap lg:px-4"
               >
                 <Plus className="w-4 h-4" />
@@ -170,7 +249,6 @@ const Movimientos = () => {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-[#222] text-white text-xs uppercase tracking-wider">
-                  <th className="p-4 font-medium text-center">ID</th>
                   <th className="p-4 font-medium text-center">Fecha/Hora</th>
                   <th className="p-4 font-medium text-center">Producto</th>
                   <th className="p-4 font-medium text-center">Tipo</th>
@@ -178,6 +256,7 @@ const Movimientos = () => {
                   <th className="p-4 font-medium text-center">Razón</th>
                   <th className="p-4 font-medium text-center">Usuario</th>
                   <th className="p-4 font-medium text-center">Referencia</th>
+                  <th className="p-4 font-medium text-center">Acciones</th>
                 </tr>
               </thead>
               <tbody className="text-sm text-foreground divide-y divide-border">
@@ -185,7 +264,6 @@ const Movimientos = () => {
                   const config = typeConfig[movement.type];
                   return (
                     <tr key={movement.id} className="hover:bg-primary/5 transition-colors">
-                      <td className="p-4 font-medium text-muted-foreground text-center">{movement.id}</td>
                       <td className="p-4 text-center">
                         <div>
                           <p className="font-medium">{movement.date}</p>
@@ -208,7 +286,37 @@ const Movimientos = () => {
                       </td>
                       <td className="p-4 text-center text-muted-foreground">{movement.reason}</td>
                       <td className="p-4 text-center">{movement.user}</td>
-                      <td className="p-4 text-center text-muted-foreground">{movement.reference || '-'}</td>
+                      <td className="p-4 text-center text-muted-foreground">
+                        {movement.reference === 'MANUAL' ? (
+                          <span className="bg-blue-100 text-blue-800 text-[10px] px-2 py-0.5 rounded-full font-bold">MANUAL</span>
+                        ) : (
+                            movement.reference || '-'
+                        )}
+                      </td>
+                      <td className="p-4 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          {movement.reference === 'MANUAL' ? (
+                            <>
+                              <button
+                                onClick={() => handleOpenModal(movement.id)}
+                                className="p-1.5 hover:bg-blue-50 text-blue-600 rounded-lg transition-colors"
+                                title="Editar"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(movement.id)}
+                                className="p-1.5 hover:bg-red-50 text-red-600 rounded-lg transition-colors"
+                                title="Eliminar"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </>
+                          ) : (
+                            <span className="text-xs text-muted-foreground italic">Auto</span>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}
@@ -235,20 +343,40 @@ const Movimientos = () => {
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono text-muted-foreground">{movement.id}</span>
                         <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium uppercase tracking-wide border ${config.className} bg-transparent border-current opacity-70`}>
                           {config.label}
                         </span>
+                        {movement.reference === 'MANUAL' && (
+                            <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-[10px] px-1.5 py-0.5 rounded-full font-bold border border-blue-200 dark:border-blue-800">
+                                MANUAL
+                            </span>
+                        )}
                       </div>
                       <h3 className="font-semibold text-foreground mt-0.5">{movement.product}</h3>
                     </div>
                   </div>
+                    {movement.reference === 'MANUAL' && (
+                        <div className="flex gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button 
+                                onClick={() => handleOpenModal(movement.id)}
+                                className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-primary transition-colors"
+                            >
+                                <Edit className="w-4 h-4" />
+                            </button>
+                            <button 
+                                onClick={() => handleDelete(movement.id)}
+                                className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg text-muted-foreground hover:text-red-600 transition-colors"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 <div className="space-y-3">
                   <div className="flex items-center justify-between p-2.5 bg-secondary/30 rounded-lg">
                     <span className="text-xs text-muted-foreground font-medium">Cantidad</span>
-                    <span className={`textbase font-bold ${
+                    <span className={`text-base font-bold ${
                       movement.type === 'entrada' ? 'text-success' : 
                       movement.type === 'salida' || movement.type === 'transferencia' ? 'text-destructive' : 
                       'text-warning'
@@ -274,7 +402,7 @@ const Movimientos = () => {
 
                   <div className="pt-2 flex items-center justify-between text-xs border-t border-border/50">
                     <span className="text-muted-foreground">Por: <span className="text-foreground font-medium">{movement.user}</span></span>
-                    {movement.reference && (
+                    {movement.reference && movement.reference !== 'MANUAL' && (
                       <span className="text-muted-foreground bg-secondary px-1.5 py-0.5 rounded text-[10px]">{movement.reference}</span>
                     )}
                   </div>
@@ -288,6 +416,116 @@ const Movimientos = () => {
       {filteredMovements.length === 0 && viewMode === 'cards' && (
         <div className="bg-card rounded-xl shadow-sm p-8 text-center text-muted-foreground">
           No hay movimientos para mostrar
+        </div>
+      )}
+      
+      {/* Modal de Crear/Editar Movimiento */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={handleCloseModal}>
+          <div className="bg-card w-full max-w-md rounded-xl shadow-xl border border-border overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-border bg-secondary/30">
+              <h3 className="font-bold text-lg">
+                {editingMovement ? 'Editar Movimiento' : 'Nuevo Movimiento'}
+              </h3>
+              <button onClick={handleCloseModal} className="p-1 hover:bg-secondary rounded-lg transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleSubmit} className="p-4 space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Producto</label>
+                <select
+                  required
+                  className="w-full p-2 border border-border rounded-lg bg-background text-sm"
+                  value={formData.producto_id || ''}
+                  onChange={e => {
+                      const product = products.find(p => p.id === e.target.value);
+                      setFormData(prev => ({ 
+                          ...prev, 
+                          producto_id: e.target.value,
+                          unidad: product?.unit || 'unidades'
+                      }))
+                  }}
+                  disabled={!!editingMovement} // No permitir cambiar producto en edición para simplificar
+                >
+                  <option value="">Seleccionar producto...</option>
+                  {products.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Tipo</label>
+                  <select
+                    required
+                    className="w-full p-2 border border-border rounded-lg bg-background text-sm"
+                    value={formData.tipo}
+                    onChange={e => setFormData(prev => ({ ...prev, tipo: e.target.value as any }))}
+                  >
+                    <option value="entrada">Entrada</option>
+                    <option value="salida">Salida</option>
+                    <option value="ajuste">Ajuste</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Cantidad</label>
+                  <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        required
+                        min="0.01"
+                        step="0.01"
+                        className="w-full p-2 border border-border rounded-lg bg-background text-sm"
+                        value={formData.cantidad}
+                        onChange={e => setFormData(prev => ({ ...prev, cantidad: Number(e.target.value) }))}
+                      />
+                      <span className="text-xs text-muted-foreground w-12 truncate">{formData.unidad}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Motivo</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej. Compra local, Merma, Ajuste de inventario..."
+                  className="w-full p-2 border border-border rounded-lg bg-background text-sm"
+                  value={formData.motivo || ''}
+                  onChange={e => setFormData(prev => ({ ...prev, motivo: e.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Notas (Opcional)</label>
+                <textarea
+                  className="w-full p-2 border border-border rounded-lg bg-background text-sm min-h-[80px]"
+                  value={formData.notas || ''}
+                  onChange={e => setFormData(prev => ({ ...prev, notas: e.target.value }))}
+                />
+              </div>
+
+              <div className="pt-2 flex gap-2 justify-end">
+                <button
+                  type="button"
+                  onClick={handleCloseModal}
+                  className="px-4 py-2 text-sm hover:bg-secondary rounded-lg transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-sm bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-colors flex items-center gap-2"
+                >
+                  <Save className="w-4 h-4" />
+                  Guardar
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
       </div>

@@ -12,6 +12,7 @@ interface AuthContextType {
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  updateAvatar: (file: File) => Promise<void>;
   isAuthenticated: boolean;
 }
 
@@ -84,15 +85,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           throw new Error('Usuario no encontrado o credenciales inválidas');
         }
 
+        const userRecord = userData as any;
+
+        // Split nombre_completo into first and last name for backward compatibility
+        const parts = (userRecord.nombre_completo || '').split(' ');
+        const nombre = parts[0] || '';
+        const apellidos = parts.slice(1).join(' ') || '';
+
         // Crear objeto de usuario
         const authUser: AuthUser = {
-          id: userData.id,
-          email: userData.email,
-          nombre: userData.nombre_completo.split(' ')[0] || 'Usuario',
-          apellidos: userData.nombre_completo.split(' ').slice(1).join(' ') || '',
-          rol: userData.rol,
-          telefono: userData.telefono || undefined,
-          avatar_url: userData.avatar_url || undefined,
+          id: userRecord.id,
+          email: userRecord.email,
+          nombre: nombre,
+          apellidos: apellidos,
+          rol: userRecord.rol,
+          telefono: userRecord.telefono || undefined,
+          avatar_url: userRecord.avatar_url || undefined,
         };
 
         // Guardar en localStorage para persistencia
@@ -152,6 +160,65 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const updateAvatar = async (file: File) => {
+    if (!user) {
+      throw new Error('No hay usuario autenticado');
+    }
+
+    try {
+      setLoading(true);
+
+      // Crear nombre único para el archivo
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}_${Date.now()}.${fileExt}`;
+      const filePath = `${fileName}`; // Solo el nombre del archivo, el bucket ya se llama 'avatars'
+
+      // Subir a Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      // Obtener URL pública
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      // Actualizar en base de datos
+      const { error: dbError } = await (supabase
+        .from('usuarios') as any)
+        .update({ avatar_url: publicUrl })
+        .eq('id', user.id);
+
+      if (dbError) {
+        throw dbError;
+      }
+
+      // Actualizar estado local
+      const updatedUser = { ...user, avatar_url: publicUrl };
+      setUser(updatedUser);
+
+      // Actualizar localStorage en modo desarrollo
+      if (DEV_MODE) {
+        localStorage.setItem('dev_user', JSON.stringify(updatedUser));
+      }
+
+      toast.success('Avatar actualizado exitosamente');
+    } catch (err) {
+      console.error('Error al actualizar avatar:', err);
+      toast.error('Error al actualizar avatar');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -159,6 +226,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       error,
       login,
       logout,
+      updateAvatar,
       isAuthenticated: !!user
     }}>
       {children}

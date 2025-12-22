@@ -113,8 +113,8 @@ class MovimientosService {
    */
   async registrar(movimiento: InsertMovimiento): Promise<Movimiento> {
     try {
-      const { data, error } = await supabase
-        .from(this.tabla)
+      const { data, error } = await (supabase
+        .from(this.tabla) as any)
         .insert(movimiento)
         .select()
         .single();
@@ -216,6 +216,42 @@ class MovimientosService {
       };
     } catch (error) {
       console.error('Error al obtener estadísticas de movimientos:', error);
+      throw new Error(handleSupabaseError(error));
+    }
+  }
+  /**
+   * Actualizar un movimiento existente
+   */
+  async actualizar(id: string, actualizacion: Partial<InsertMovimiento>): Promise<Movimiento> {
+    try {
+      const { data, error } = await (supabase
+        .from(this.tabla) as any)
+        .update(actualizacion)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error al actualizar movimiento:', error);
+      throw new Error(handleSupabaseError(error));
+    }
+  }
+
+  /**
+   * Eliminar un movimiento
+   */
+  async eliminar(id: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from(this.tabla)
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error al eliminar movimiento:', error);
       throw new Error(handleSupabaseError(error));
     }
   }

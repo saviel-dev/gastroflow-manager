@@ -2,32 +2,13 @@ import { supabase, handleSupabaseError } from '@/lib/supabase';
 import type { Configuracion, InsertConfiguracion, UpdateConfiguracion } from '@/types/database.types';
 
 /**
- * Servicio para gestionar configuraciones del sistema
- * Permite leer y actualizar configuraciones almacenadas en la base de datos
+ * Servicio para gestionar las configuraciones del sistema
  */
 class ConfiguracionService {
   private readonly tabla = 'configuracion';
 
   /**
-   * Obtener todas las configuraciones
-   */
-  async obtenerTodas(): Promise<Configuracion[]> {
-    try {
-      const { data, error } = await supabase
-        .from(this.tabla)
-        .select('*')
-        .order('categoria', { ascending: true });
-
-      if (error) throw error;
-      return data || [];
-    } catch (error) {
-      console.error('Error al obtener configuraciones:', error);
-      throw new Error(handleSupabaseError(error));
-    }
-  }
-
-  /**
-   * Obtener una configuración por su clave
+   * Obtener una configuración por clave
    */
   async obtenerPorClave(clave: string): Promise<Configuracion | null> {
     try {
@@ -39,7 +20,6 @@ class ConfiguracionService {
 
       if (error) {
         if (error.code === 'PGRST116') {
-          // No se encontró el registro
           return null;
         }
         throw error;
@@ -53,11 +33,21 @@ class ConfiguracionService {
   }
 
   /**
-   * Obtener el valor de una configuración
+   * Obtener todas las configuraciones
    */
-  async obtenerValor(clave: string): Promise<string | null> {
-    const config = await this.obtenerPorClave(clave);
-    return config?.valor || null;
+  async obtenerTodas(): Promise<Configuracion[]> {
+    try {
+      const { data, error } = await supabase
+        .from(this.tabla)
+        .select('*')
+        .order('clave', { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error al obtener configuraciones:', error);
+      throw new Error(handleSupabaseError(error));
+    }
   }
 
   /**
@@ -80,20 +70,20 @@ class ConfiguracionService {
   }
 
   /**
-   * Crear una nueva configuración
+   * Crear o actualizar una configuración (upsert)
    */
-  async crear(configuracion: InsertConfiguracion): Promise<Configuracion> {
+  async guardar(configuracion: InsertConfiguracion): Promise<Configuracion> {
     try {
       const { data, error } = await supabase
         .from(this.tabla)
-        .insert(configuracion)
+        .upsert(configuracion as any, { onConflict: 'clave' })
         .select()
         .single();
 
       if (error) throw error;
       return data;
     } catch (error) {
-      console.error('Error al crear configuración:', error);
+      console.error('Error al guardar configuración:', error);
       throw new Error(handleSupabaseError(error));
     }
   }
@@ -104,7 +94,7 @@ class ConfiguracionService {
   async actualizar(clave: string, actualizacion: UpdateConfiguracion): Promise<Configuracion> {
     try {
       const { data, error } = await supabase
-        .from(this.tabla)
+        .from('configuracion')
         .update(actualizacion)
         .eq('clave', clave)
         .select()
@@ -119,10 +109,81 @@ class ConfiguracionService {
   }
 
   /**
+   * Crear nueva configuración
+   */
+  async crear(configuracion: InsertConfiguracion): Promise<Configuracion> {
+    try {
+      const { data, error } = await supabase
+        .from('configuracion')
+        .insert(configuracion)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error al crear configuración:', error);
+      throw new Error(handleSupabaseError(error));
+    }
+  }
+
+  /**
    * Actualizar solo el valor de una configuración
    */
   async actualizarValor(clave: string, valor: string): Promise<Configuracion> {
-    return this.actualizar(clave, { valor });
+    try {
+      const { data, error } = await supabase
+        .from('configuracion')
+        .update({ valor } as any) // Mantener as any por partial update
+        .eq('clave', clave)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error(`Error al actualizar valor de ${clave}:`, error);
+      throw new Error(handleSupabaseError(error));
+    }
+  }
+
+  /**
+   * Obtener tasa del BCV
+   */
+  async obtenerTasaBCV(): Promise<number> {
+    try {
+      const config = await this.obtenerPorClave('tasa_bcv');
+      if (!config) return 0;
+      return parseFloat(config.valor);
+    } catch (error) {
+      console.error('Error al obtener tasa BCV:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Actualizar tasa del BCV
+   */
+  async actualizarTasaBCV(nuevaTasa: number): Promise<Configuracion> {
+    try {
+      // Verificar si existe primero
+      const existe = await this.obtenerPorClave('tasa_bcv');
+      
+      if (existe) {
+        return await this.actualizarValor('tasa_bcv', nuevaTasa.toString());
+      } else {
+        return await this.crear({
+          clave: 'tasa_bcv',
+          valor: nuevaTasa.toString(),
+          tipo: 'numero',
+          categoria: 'sistema',
+          descripcion: 'Tasa de cambio del BCV'
+        });
+      }
+    } catch (error) {
+      console.error('Error al actualizar tasa BCV:', error);
+      throw error;
+    }
   }
 
   /**
@@ -143,42 +204,49 @@ class ConfiguracionService {
   }
 
   /**
-   * Obtener la tasa de cambio BCV actual
+   * Helper para parsear el valor según el tipo
    */
-  async obtenerTasaBCV(): Promise<number> {
-    const valor = await this.obtenerValor('tasa_cambio_bcv');
-    return valor ? parseFloat(valor) : 50.0; // Valor por defecto
+  parseValor(configuracion: Configuracion): any {
+    if (!configuracion.valor) {
+      return null;
+    }
+
+    switch (configuracion.tipo) {
+      case 'numero':
+        return parseFloat(configuracion.valor);
+      case 'booleano':
+        return configuracion.valor === 'true';
+      case 'json':
+        try {
+          return JSON.parse(configuracion.valor);
+        } catch {
+          return null;
+        }
+      case 'texto':
+      default:
+        return configuracion.valor;
+    }
   }
 
   /**
-   * Actualizar la tasa de cambio BCV
+   * Helper para convertir valor a string para guardar
    */
-  async actualizarTasaBCV(tasa: number): Promise<void> {
-    await this.actualizarValor('tasa_cambio_bcv', tasa.toString());
-  }
+  stringifyValor(valor: any, tipo: 'texto' | 'numero' | 'booleano' | 'json'): string {
+    if (valor === null || valor === undefined) {
+      return '';
+    }
 
-  /**
-   * Obtener el porcentaje de IVA
-   */
-  async obtenerIVA(): Promise<number> {
-    const valor = await this.obtenerValor('iva_porcentaje');
-    return valor ? parseFloat(valor) : 16.0; // Valor por defecto
-  }
-
-  /**
-   * Obtener la moneda principal del sistema
-   */
-  async obtenerMonedaPrincipal(): Promise<string> {
-    const valor = await this.obtenerValor('moneda_principal');
-    return valor || 'USD';
-  }
-
-  /**
-   * Obtener la moneda secundaria del sistema
-   */
-  async obtenerMonedaSecundaria(): Promise<string> {
-    const valor = await this.obtenerValor('moneda_secundaria');
-    return valor || 'VES';
+    switch (tipo) {
+      case 'json':
+        return JSON.stringify(valor);
+      case 'booleano':
+        return valor ? 'true' : 'false';
+      case 'numero':
+        return valor.toString();
+      case 'texto':
+      default:
+        return String(valor);
+    }
   }
 }
 

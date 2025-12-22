@@ -97,8 +97,7 @@ class AuthService {
         password: data.password,
         options: {
           data: {
-            nombre: data.nombre,
-            apellidos: data.apellidos,
+            nombre_completo: `${data.nombre} ${data.apellidos}`.trim(),
           },
         },
       });
@@ -116,11 +115,10 @@ class AuthService {
       }
 
       // Crear registro en tabla usuarios
-      const { error: insertError } = await supabase.from('usuarios').insert({
+      const { error: insertError } = await (supabase.from('usuarios') as any).insert({
         id: authData.user.id,
         email: data.email.trim().toLowerCase(),
-        nombre: data.nombre,
-        apellidos: data.apellidos,
+        nombre_completo: `${data.nombre} ${data.apellidos}`.trim(),
         rol: data.rol || 'usuario',
         telefono: data.telefono || null,
         activo: true,
@@ -255,7 +253,7 @@ class AuthService {
     try {
       const { data, error } = await supabase
         .from('usuarios')
-        .select('id, email, nombre, apellidos, rol, telefono, avatar_url')
+        .select('id, email, nombre_completo, rol, telefono, avatar_url')
         .eq('id', userId)
         .eq('activo', true)
         .single();
@@ -265,14 +263,21 @@ class AuthService {
         return null;
       }
 
+      const userRecord = data as any;
+
+      // Split nombre_completo into first and last name for backward compatibility
+      const parts = (userRecord.nombre_completo || '').split(' ');
+      const nombre = parts[0] || '';
+      const apellidos = parts.slice(1).join(' ') || '';
+
       return {
-        id: data.id,
-        email: data.email,
-        nombre: data.nombre,
-        apellidos: data.apellidos,
-        rol: data.rol,
-        telefono: data.telefono || undefined,
-        avatar_url: data.avatar_url || undefined,
+        id: userRecord.id,
+        email: userRecord.email,
+        nombre: nombre,
+        apellidos: apellidos,
+        rol: userRecord.rol,
+        telefono: userRecord.telefono || undefined,
+        avatar_url: userRecord.avatar_url || undefined,
       };
     } catch (error) {
       console.error('Error en getUserData:', error);

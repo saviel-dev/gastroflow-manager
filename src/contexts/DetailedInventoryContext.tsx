@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { inventarioDetalladoService } from '@/services/inventario-detallado.service';
 import { inventarioGeneralService } from '@/services/inventario-general.service';
 import { movimientosService } from '@/services/movimientos.service';
@@ -15,6 +15,7 @@ interface DetailedInventoryContextType {
   updateProduct: (locationId: string, product: Product) => Promise<void>;
   deleteProduct: (locationId: string, productId: string) => Promise<void>;
   refreshLocation: (locationId: string) => Promise<void>;
+  getProductCount: (locationId: string) => number;
 }
 
 const DetailedInventoryContext = createContext<DetailedInventoryContextType | undefined>(undefined);
@@ -68,8 +69,32 @@ const mapFromProduct = (
 
 export const DetailedInventoryProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [productsByLocation, setProductsByLocation] = useState<Record<string, Product[]>>({});
+  const [productCounts, setProductCounts] = useState<Record<string, number>>({});
   const [loadingByLocation, setLoadingByLocation] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
+
+  // Cargar conteos globales al iniciar
+  useEffect(() => {
+    loadCounts();
+  }, []);
+
+  const loadCounts = async () => {
+    try {
+      const counts = await inventarioDetalladoService.obtenerConteosGlobal();
+      setProductCounts(counts);
+    } catch (err) {
+      console.error('Error al cargar conteos:', err);
+    }
+  };
+
+  const getProductCount = useCallback((locationId: string): number => {
+    // Si tenemos los productos cargados, usar esa longitud (más preciso)
+    if (productsByLocation[locationId]) {
+      return productsByLocation[locationId].length;
+    }
+    // Si no, usar el conteo global
+    return productCounts[locationId] || 0;
+  }, [productsByLocation, productCounts]);
 
   const getProductsByLocation = useCallback((locationId: string): Product[] => {
     return productsByLocation[locationId] || [];
@@ -116,6 +141,10 @@ export const DetailedInventoryProvider: React.FC<{ children: React.ReactNode }> 
       setProductsByLocation(prev => ({
         ...prev,
         [locationId]: [...(prev[locationId] || []), mappedProduct]
+      }));
+      setProductCounts(prev => ({
+        ...prev,
+        [locationId]: (prev[locationId] || 0) + 1
       }));
       toast.success(`Producto "${product.name}" agregado exitosamente`);
     } catch (err) {
@@ -198,6 +227,10 @@ export const DetailedInventoryProvider: React.FC<{ children: React.ReactNode }> 
         ...prev,
         [locationId]: [...(prev[locationId] || []), mappedProduct]
       }));
+      setProductCounts(prev => ({
+        ...prev,
+        [locationId]: (prev[locationId] || 0) + 1
+      }));
 
       toast.success(`Producto "${generalProduct.nombre}" transferido exitosamente`);
     } catch (err) {
@@ -252,6 +285,10 @@ export const DetailedInventoryProvider: React.FC<{ children: React.ReactNode }> 
         ...prev,
         [locationId]: (prev[locationId] || []).filter(p => p.id !== productId)
       }));
+      setProductCounts(prev => ({
+        ...prev,
+        [locationId]: Math.max(0, (prev[locationId] || 1) - 1)
+      }));
       
       toast.success(`Producto "${product?.name || 'desconocido'}" eliminado exitosamente`);
     } catch (err) {
@@ -276,7 +313,8 @@ export const DetailedInventoryProvider: React.FC<{ children: React.ReactNode }> 
       transferFromGeneral,
       updateProduct,
       deleteProduct,
-      refreshLocation
+      refreshLocation,
+      getProductCount
     }}>
       {children}
     </DetailedInventoryContext.Provider>
