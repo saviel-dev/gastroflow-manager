@@ -1,4 +1,5 @@
 import { ClipboardList, Search, Plus, Edit, Trash2, Folder, ChevronRight, X, Table2, Grid3x3, Save, List, Package, MoreVertical, Eye, Store, DollarSign, AlertTriangle, Box, Download, FileText, FileSpreadsheet, ChevronDown, Loader2 } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -146,18 +147,8 @@ const InventarioDetallado = () => {
           formData.minStock || 0
         );
       } else {
-        // Crear producto nuevo
-        const newProduct: Omit<Product, 'id'> = {
-          name: formData.name || '',
-          category: formData.category || 'General',
-          stock: formData.stock || 0,
-          unit: formData.unit || 'Unidades',
-          minStock: formData.minStock || 0,
-          price: formData.price || 0,
-          status: formData.status || 'available',
-          image: imagePreview || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&h=300&fit=crop',
-        };
-        await addProductToLocation(selectedLocation, newProduct);
+        toast.error("Debe seleccionar un producto del inventario general");
+        return;
       }
 
       setIsAddingProduct(false);
@@ -492,7 +483,8 @@ const InventarioDetallado = () => {
         </div>
 
         {/* Form Modal para Agregar/Editar */}
-        {(isAddingProduct || editingProduct) && (
+        {/* Form Modal para Agregar/Editar - Usando Portal para evitar problemas con PageTransition */}
+        {(isAddingProduct || editingProduct) && createPortal(
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-2">
             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={handleCloseForm} />
             <div className="relative bg-card rounded-xl shadow-2xl p-3 sm:p-4 w-full max-w-md max-h-[96vh] overflow-y-auto border border-border z-[10000]">
@@ -544,10 +536,10 @@ const InventarioDetallado = () => {
                     <label className="block text-[10px] font-semibold text-foreground mb-0.5">Nombre</label>
                     <input
                       type="text"
-                      className="w-full px-2.5 py-1.5 border border-border rounded-md text-xs bg-background disabled:opacity-75 disabled:bg-secondary/20"
+                      className="w-full px-2.5 py-1.5 border border-border rounded-md text-xs bg-secondary/20 cursor-not-allowed"
                       value={formData.name || ''}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      disabled={!!selectedGeneralProductId}
+                      readOnly
+                      disabled={!editingProduct}
                       placeholder="Salchicha"
                     />
                   </div>
@@ -555,10 +547,10 @@ const InventarioDetallado = () => {
                     <label className="block text-[10px] font-semibold text-foreground mb-0.5">Categoría</label>
                     <input
                       type="text"
-                      className="w-full px-2.5 py-1.5 border border-border rounded-md text-xs bg-background disabled:opacity-75 disabled:bg-secondary/20"
+                      className="w-full px-2.5 py-1.5 border border-border rounded-md text-xs bg-secondary/20 cursor-not-allowed"
                       value={formData.category || ''}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      disabled={!!selectedGeneralProductId}
+                      readOnly
+                      disabled={!editingProduct}
                       placeholder="Embutidos"
                     />
                   </div>
@@ -567,9 +559,10 @@ const InventarioDetallado = () => {
                     <label className="block text-[10px] font-bold text-primary mb-0.5">Cantidad</label>
                     <input
                       type="number"
-                      className="w-full px-2.5 py-1.5 border-2 border-primary/20 rounded-md text-xs bg-background focus:border-primary focus:ring-0"
+                      className={`w-full px-2.5 py-1.5 border-2 border-primary/20 rounded-md text-xs bg-background focus:border-primary focus:ring-0 ${(!editingProduct && !selectedGeneralProductId) ? 'bg-secondary/20 cursor-not-allowed opacity-50' : ''}`}
                       value={formData.stock ?? ''}
                       onChange={(e) => setFormData({ ...formData, stock: e.target.value === '' ? undefined : parseFloat(e.target.value) })}
+                      disabled={!editingProduct && !selectedGeneralProductId}
                       placeholder="0"
                     />
                   </div>
@@ -577,10 +570,10 @@ const InventarioDetallado = () => {
                     <label className="block text-[10px] font-semibold text-foreground mb-0.5">Unidad</label>
                     <input
                       type="text"
-                      className="w-full px-2.5 py-1.5 border border-border rounded-md text-xs bg-background disabled:opacity-75 disabled:bg-secondary/20"
+                      className="w-full px-2.5 py-1.5 border border-border rounded-md text-xs bg-secondary/20 cursor-not-allowed"
                       value={formData.unit || ''}
-                      onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                      disabled={!!selectedGeneralProductId}
+                      readOnly
+                      disabled={!editingProduct}
                       placeholder="Unidades"
                     />
                   </div>
@@ -589,9 +582,10 @@ const InventarioDetallado = () => {
                     <label className="block text-[10px] font-semibold text-foreground mb-0.5">Stock Mín.</label>
                     <input
                       type="number"
-                      className="w-full px-2.5 py-1.5 border border-border rounded-md text-xs bg-background"
+                      className={`w-full px-2.5 py-1.5 border border-border rounded-md text-xs bg-background ${(!editingProduct && !selectedGeneralProductId) ? 'bg-secondary/20 cursor-not-allowed opacity-50' : ''}`}
                       value={formData.minStock ?? ''}
                       onChange={(e) => setFormData({ ...formData, minStock: e.target.value === '' ? undefined : parseFloat(e.target.value) })}
+                      disabled={!editingProduct && !selectedGeneralProductId}
                       placeholder="0"
                     />
                   </div>
@@ -599,10 +593,10 @@ const InventarioDetallado = () => {
                     <label className="block text-[10px] font-semibold text-foreground mb-0.5">Precio</label>
                     <input
                       type="number"
-                      className="w-full px-2.5 py-1.5 border border-border rounded-md text-xs bg-background disabled:opacity-75 disabled:bg-secondary/20"
+                      className="w-full px-2.5 py-1.5 border border-border rounded-md text-xs bg-secondary/20 cursor-not-allowed"
                       value={formData.price ?? ''}
-                      onChange={(e) => setFormData({ ...formData, price: e.target.value === '' ? undefined : parseFloat(e.target.value) })}
-                      disabled={!!selectedGeneralProductId}
+                      readOnly
+                      disabled={!editingProduct}
                       placeholder="0"
                     />
                   </div>
@@ -610,10 +604,10 @@ const InventarioDetallado = () => {
                   <div className="col-span-2">
                     <label className="block text-[10px] font-semibold text-foreground mb-0.5">Estado</label>
                     <select
-                      className="w-full px-2.5 py-1.5 border border-border rounded-md text-xs bg-background disabled:opacity-75 disabled:bg-secondary/20"
                       value={formData.status || 'available'}
                       onChange={(e) => setFormData({ ...formData, status: e.target.value as Product['status'] })}
-                      disabled={!!selectedGeneralProductId}
+                      disabled={!editingProduct}
+                      className={`w-full px-2.5 py-1.5 border border-border rounded-md text-xs bg-background ${!editingProduct ? 'bg-secondary/20 cursor-not-allowed' : ''}`}
                     >
                       <option value="available">Disponible</option>
                       <option value="low">Bajo Stock</option>
@@ -625,7 +619,7 @@ const InventarioDetallado = () => {
                 
                 <div className="pt-2 border-t border-border">
                   <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Foto</label>
-                  {selectedGeneralProductId && imagePreview ? (
+                  {(selectedGeneralProductId && imagePreview) ? (
                     // Mostrar imagen del producto seleccionado (no editable)
                     <div className="flex items-center gap-2.5 p-2.5 bg-secondary/30 rounded-md border border-border/50">
                       <div className="relative w-16 h-16 rounded-md overflow-hidden border-2 border-primary/20 bg-secondary/50 flex-shrink-0">
@@ -637,34 +631,41 @@ const InventarioDetallado = () => {
                       </div>
                     </div>
                   ) : (
-                    // Permitir subir imagen solo si no hay producto seleccionado
-                    <div className="flex items-center gap-2.5">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        ref={fileInputRef}
-                        onChange={handleImageChange}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="flex-1 px-2.5 py-1.5 border border-dashed border-border rounded-md text-xs font-medium hover:bg-secondary transition-all flex items-center justify-center gap-1.5 group"
-                      >
-                        <Plus className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary" /> 
-                        <span className="text-muted-foreground group-hover:text-foreground">Subir Foto</span>
-                      </button>
-                      {imagePreview && (
-                        <div className="relative w-12 h-12 rounded-md overflow-hidden border-2 border-primary/20 bg-secondary/50 flex-shrink-0">
-                          <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
-                          <button 
-                            onClick={() => setImagePreview(null)}
-                            className="absolute -top-1 -right-1 bg-destructive text-white rounded-full p-0.5 shadow-md hover:scale-110 transition-transform"
-                          >
-                            <X className="w-2.5 h-2.5" />
-                          </button>
-                        </div>
-                      )}
+                    <div className="space-y-2">
+                       {(!editingProduct && !selectedGeneralProductId) ? (
+                          <div className="p-2 text-xs text-muted-foreground text-center bg-secondary/20 rounded-md border border-dashed border-border">
+                            Selecciona un producto para ver su imagen
+                          </div>
+                       ) : (
+                          <div className="flex items-center gap-2.5">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              ref={fileInputRef}
+                              onChange={handleImageChange}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => fileInputRef.current?.click()}
+                              className="flex-1 px-2.5 py-1.5 border border-dashed border-border rounded-md text-xs font-medium hover:bg-secondary transition-all flex items-center justify-center gap-1.5 group"
+                            >
+                              <Plus className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary" /> 
+                              <span className="text-muted-foreground group-hover:text-foreground">Subir Foto</span>
+                            </button>
+                            {imagePreview && (
+                              <div className="relative w-12 h-12 rounded-md overflow-hidden border-2 border-primary/20 bg-secondary/50 flex-shrink-0">
+                                <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                                <button 
+                                  onClick={() => setImagePreview(null)}
+                                  className="absolute -top-1 -right-1 bg-destructive text-white rounded-full p-0.5 shadow-md hover:scale-110 transition-transform"
+                                >
+                                  <X className="w-2.5 h-2.5" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                       )}
                     </div>
                   )}
                 </div>
@@ -686,7 +687,8 @@ const InventarioDetallado = () => {
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
         {/* Table or Cards View */}

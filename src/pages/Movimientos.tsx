@@ -17,7 +17,7 @@ const Movimientos = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState('all');
   const [dateFilter, setDateFilter] = useState('');
-  const [viewMode, setViewMode] = useState<'table' | 'cards'>('cards');
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);

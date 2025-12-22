@@ -82,6 +82,10 @@ const InventarioGeneral = () => {
       toast.error("La cantidad debe ser mayor a 0");
       return;
     }
+    if ((editingProduct.price || 0) < 1) {
+      toast.error("El precio debe ser mayor o igual a 1");
+      return;
+    }
     if ((editingProduct.minStock || 0) <= 0) {
       toast.error("El stock mínimo debe ser mayor a 0");
       return;
@@ -111,6 +115,10 @@ const InventarioGeneral = () => {
 
     if ((newProduct.stock || 0) <= 0) {
       toast.error("La cantidad debe ser mayor a 0");
+      return;
+    }
+    if ((newProduct.price || 0) < 1) {
+      toast.error("El precio debe ser mayor o igual a 1");
       return;
     }
     if ((newProduct.minStock || 0) <= 0) {
@@ -682,6 +690,7 @@ const InventarioGeneral = () => {
                 <Input
                   id="price"
                   type="number"
+                  min={1}
                   placeholder="0"
                   value={newProduct.price ?? ''}
                   onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value === '' ? undefined : parseFloat(e.target.value) })}
@@ -796,6 +805,7 @@ const InventarioGeneral = () => {
                 <Input
                   id="edit-price"
                   type="number"
+                  min={1}
                   value={editingProduct?.price || ''}
                   onChange={(e) => setEditingProduct(prev => prev ? { ...prev, price: parseFloat(e.target.value) } : null)}
                 />

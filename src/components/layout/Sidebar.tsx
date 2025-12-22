@@ -1,4 +1,6 @@
 import { NavLink } from "react-router-dom";
+import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useConfiguracion } from "@/hooks/useConfiguracion";
 import { useNotifications } from "@/contexts/NotificationContext";
@@ -44,6 +46,22 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }: SidebarProp
   const { user } = useAuth();
   const { configuracion } = useConfiguracion('sistema.nombre');
   const { unreadCount } = useNotifications();
+  const [activeTooltip, setActiveTooltip] = useState<{ label: string; top: number; left: number; badge?: number } | null>(null);
+
+  const handleMouseEnter = (e: React.MouseEvent, label: string, badge?: number) => {
+    if (!isCollapsed) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    setActiveTooltip({
+      label,
+      top: rect.top + (rect.height / 2) - 16, // Center vertically roughly
+      left: rect.right + 10,
+      badge
+    });
+  };
+
+  const handleMouseLeave = () => {
+    setActiveTooltip(null);
+  };
 
   return (
     <>
@@ -83,7 +101,8 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }: SidebarProp
                 <NavLink
                   to={item.to}
                   onClick={onClose}
-                  title={isCollapsed ? item.label : undefined}
+                  onMouseEnter={(e) => handleMouseEnter(e, item.label)}
+                  onMouseLeave={handleMouseLeave}
                   className={({ isActive }) =>
                     `flex items-center ${isCollapsed ? 'justify-center' : 'gap-2'} px-3 py-2 text-sm rounded-lg font-medium transition-colors duration-200 group ${
                       isActive
@@ -111,7 +130,8 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }: SidebarProp
                 <NavLink
                   to={item.to}
                   onClick={onClose}
-                  title={isCollapsed ? item.label : undefined}
+                  onMouseEnter={(e) => handleMouseEnter(e, item.label, item.badge && unreadCount > 0 ? unreadCount : undefined)}
+                  onMouseLeave={handleMouseLeave}
                   className={({ isActive }) =>
                     `flex items-center ${isCollapsed ? 'justify-center' : 'gap-2'} px-3 py-2 text-sm rounded-lg font-medium transition-colors duration-200 group relative ${
                       isActive
@@ -175,6 +195,25 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }: SidebarProp
           </div>
         </div>
       </aside>
+
+      {/* Tooltip Portal */}
+      {activeTooltip && isCollapsed && createPortal(
+        <div 
+          className="fixed px-3 py-1.5 bg-sidebar-accent text-sidebar-accent-foreground text-sm font-medium rounded-lg shadow-lg z-[9999] pointer-events-none animate-in fade-in zoom-in-95 duration-200 flex items-center gap-2"
+          style={{ 
+            top: activeTooltip.top, 
+            left: activeTooltip.left,
+          }}
+        >
+          {activeTooltip.label}
+          {activeTooltip.badge && (
+            <span className="bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+              {activeTooltip.badge > 99 ? '99+' : activeTooltip.badge}
+            </span>
+          )}
+        </div>,
+        document.body
+      )}
     </>
   );
 };

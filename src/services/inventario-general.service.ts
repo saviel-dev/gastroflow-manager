@@ -16,7 +16,7 @@ class InventarioGeneralService {
       let query = supabase
         .from(this.tabla)
         .select('*')
-        .order('nombre', { ascending: true });
+        .order('fecha_creacion', { ascending: true });
 
       if (soloActivos) {
         query = query.eq('activo', true);
@@ -67,7 +67,7 @@ class InventarioGeneralService {
         .select('*')
         .ilike('nombre', `%${termino}%`)
         .eq('activo', true)
-        .order('nombre', { ascending: true });
+        .order('fecha_creacion', { ascending: true });
 
       if (error) throw error;
       return data || [];
@@ -87,7 +87,7 @@ class InventarioGeneralService {
         .select('*')
         .eq('categoria', categoria)
         .eq('activo', true)
-        .order('nombre', { ascending: true });
+        .order('fecha_creacion', { ascending: true });
 
       if (error) throw error;
       return data || [];
