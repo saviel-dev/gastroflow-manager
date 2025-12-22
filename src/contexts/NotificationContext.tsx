@@ -78,6 +78,13 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return true; 
   };
 
+  // Solicitar permisos de notificación nativa al montar
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
+
   // Suscripción a Realtime
   useEffect(() => {
     if (!user) return;
@@ -109,6 +116,21 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             toast(newNotification.titulo, {
               description: newNotification.mensaje,
             });
+
+            // Enviar notificación del sistema (celular/desktop)
+            if ('Notification' in window && Notification.permission === 'granted') {
+              try {
+                // Registrar Service Worker para notificaciones móviles mas robustas si es necesario,
+                // pero new Notification() funciona bien en apps activas/pwa
+                new Notification(newNotification.titulo, {
+                  body: newNotification.mensaje,
+                  icon: '/icon-192x192.png', // Asegúrate de tener un icono o usar uno por defecto
+                  tag: 'auto-eat-notification'
+                });
+              } catch (e) {
+                console.error('Error sending system notification:', e);
+              }
+            }
           }
         }
       )
