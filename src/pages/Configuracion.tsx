@@ -1,16 +1,20 @@
-import { Settings, User, Store, Bell, Database, Palette, Save, Loader2 } from 'lucide-react';
+import { Settings, User, Store, Bell, Database, Palette, Save, Loader2, Download } from 'lucide-react';
 import { useState } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useAuth } from '@/contexts/AuthContext';
 import AvatarUpload from '@/components/settings/AvatarUpload';
 import PageTransition from '@/components/layout/PageTransition';
+import { exportService } from '@/services/export.service';
+import { toast } from 'sonner';
 
 const Configuracion = () => {
   const { theme, toggleTheme } = useTheme();
   const { businessInfo, notifications, loading, saving, updateBusinessInfo, updateNotifications, saveSettings } = useSettings();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('general');
+  const [exportingCSV, setExportingCSV] = useState(false);
+  const [exportingExcel, setExportingExcel] = useState(false);
 
   const tabs = [
     { id: 'general', label: 'General', icon: Store },
@@ -28,6 +32,32 @@ const Configuracion = () => {
     } catch (error) {
       // El error ya es manejado por el contexto y mostrado con toast
       console.error(error);
+    }
+  };
+
+  const handleExportCSV = async () => {
+    setExportingCSV(true);
+    try {
+      await exportService.exportToCSV();
+      toast.success('Datos exportados exitosamente a CSV');
+    } catch (error) {
+      console.error('Error exporting to CSV:', error);
+      toast.error('Error al exportar los datos a CSV');
+    } finally {
+      setExportingCSV(false);
+    }
+  };
+
+  const handleExportExcel = async () => {
+    setExportingExcel(true);
+    try {
+      await exportService.exportToExcel();
+      toast.success('Datos exportados exitosamente a Excel');
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      toast.error('Error al exportar los datos a Excel');
+    } finally {
+      setExportingExcel(false);
     }
   };
 
@@ -195,24 +225,35 @@ const Configuracion = () => {
                 <h2 className="text-lg font-bold text-white">Gestión de Datos</h2>
               </div>
               <div className="p-6 space-y-4">
-                <div className="p-4 border border-border rounded-lg">
-                  <h3 className="font-medium text-foreground mb-2">Exportar Datos</h3>
-                  <p className="text-sm text-muted-foreground mb-3">Descarga una copia de todos tus datos en formato CSV o Excel.</p>
-                  <div className="flex gap-2">
-                    <button className="px-4 py-2 bg-secondary text-foreground rounded-lg text-sm hover:bg-secondary/80 transition-colors">
-                      Exportar CSV
+                <div className="p-6 border border-border rounded-lg bg-gradient-to-br from-card to-secondary/20">
+                  <h3 className="font-semibold text-foreground mb-2 text-lg">Exportar Datos</h3>
+                  <p className="text-sm text-muted-foreground mb-4">Descarga una copia de todos tus datos en formato CSV o Excel.</p>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <button 
+                      onClick={handleExportCSV}
+                      disabled={exportingCSV}
+                      className="flex-1 px-6 py-3 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
+                    >
+                      {exportingCSV ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <Download className="w-5 h-5" />
+                      )}
+                      {exportingCSV ? 'Exportando...' : 'Exportar CSV'}
                     </button>
-                    <button className="px-4 py-2 bg-secondary text-foreground rounded-lg text-sm hover:bg-secondary/80 transition-colors">
-                      Exportar Excel
+                    <button 
+                      onClick={handleExportExcel}
+                      disabled={exportingExcel}
+                      className="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
+                    >
+                      {exportingExcel ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <Download className="w-5 h-5" />
+                      )}
+                      {exportingExcel ? 'Exportando...' : 'Exportar Excel'}
                     </button>
                   </div>
-                </div>
-                <div className="p-4 border border-destructive/30 rounded-lg bg-destructive/5">
-                  <h3 className="font-medium text-destructive mb-2">Zona de Peligro</h3>
-                  <p className="text-sm text-muted-foreground mb-3">Eliminar todos los datos. Esta acción no se puede deshacer.</p>
-                  <button className="px-4 py-2 bg-destructive text-destructive-foreground rounded-lg text-sm hover:bg-destructive/90 transition-colors">
-                    Eliminar todos los datos
-                  </button>
                 </div>
               </div>
             </div>
